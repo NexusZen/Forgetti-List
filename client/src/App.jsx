@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import Login from './components/Login';
+import Signup from './components/Signup';
 import './App.css';
 
 function App() {
   const [serverMessage, setServerMessage] = useState('');
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    // Check if user is logged in
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+
     // Fetch data from the backend to verify connection
     fetch('http://localhost:5000/')
       .then(res => res.text())
@@ -15,40 +26,65 @@ function App() {
       });
   }, []);
 
+  const handleLogin = (userData) => {
+    setUser(userData);
+    navigate('/');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    navigate('/login');
+  };
+
   return (
     <div className="app-container">
       <header className="header">
-        <h1>MERN Stack Starter</h1>
-        <p>Build something amazing with MongoDB, Express, React, and Node.js</p>
+        <h1>Forgetti-List</h1>
+        {user ? (
+          <div className="user-info">
+            <span>Welcome, {user.username}</span>
+            <button onClick={handleLogout} className="btn-logout">Logout</button>
+          </div>
+        ) : (
+          <nav className="nav-links">
+            {/* Links could go here if needed */}
+          </nav>
+        )}
       </header>
 
       <main className="main-content">
-        <section className="card backend-status">
-          <h2>Backend Status</h2>
-          <div className="status-indicator">
-            <span className={`status-dot ${serverMessage && serverMessage !== 'Backend not connected' ? 'online' : 'offline'}`}></span>
-            <p>{serverMessage ? serverMessage : 'Connecting to server...'}</p>
-          </div>
-        </section>
-
-        <section className="features-grid">
-          <div className="card feature">
-            <h3>🚀 Fast & Modern</h3>
-            <p>Powered by Vite for lightning-fast development and HMR.</p>
-          </div>
-          <div className="card feature">
-            <h3>🎨 Stylized</h3>
-            <p>Clean, modern UI designed to impress out of the box.</p>
-          </div>
-          <div className="card feature">
-            <h3>🔌 API Ready</h3>
-            <p>Pre-configured Express server with CORS and Mongoose setup.</p>
-          </div>
-        </section>
+        <Routes>
+          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/register" element={<Signup onLogin={handleLogin} />} />
+          <Route path="/" element={
+            user ? (
+              <div className="card dashboard-card">
+                <h2>Your Dashboard</h2>
+                <p>You are logged in as <strong>{user.email}</strong></p>
+                <p>Backend Status:
+                  <span className={serverMessage && serverMessage !== 'Backend not connected' ? 'status-text online' : 'status-text offline'}>
+                    {serverMessage || 'Connecting...'}
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div className="landing-content">
+                <h2>Welcome to proper task management.</h2>
+                <p>Stop forgetting. Start organizing.</p>
+                <div className="cta-container">
+                  <Link to="/login" className="btn-primary">Login</Link>
+                  <Link to="/register" className="btn-secondary">Get Started</Link>
+                </div>
+              </div>
+            )
+          } />
+        </Routes>
       </main>
 
       <footer className="footer">
-        <p>Created by Antigravity using React + Express</p>
+        <p>Created by Antigravity</p>
       </footer>
     </div>
   );

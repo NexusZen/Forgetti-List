@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import GroceryListBuilder from './components/GroceryListBuilder';
 import './App.css';
 
 function App() {
@@ -60,14 +61,21 @@ function App() {
           <Route path="/register" element={<Signup onLogin={handleLogin} />} />
           <Route path="/" element={
             user ? (
-              <div className="card dashboard-card">
-                <h2>Your Dashboard</h2>
-                <p>You are logged in as <strong>{user.email}</strong></p>
-                <p>Backend Status:
-                  <span className={serverMessage && serverMessage !== 'Backend not connected' ? 'status-text online' : 'status-text offline'}>
-                    {serverMessage || 'Connecting...'}
-                  </span>
-                </p>
+              <div className="dashboard-container">
+                <div className="card dashboard-card">
+                  <h2>Your Dashboard</h2>
+                  <p className="welcome-text">You are logged in as <strong>{user.email}</strong></p>
+                </div>
+
+                <GroceryListBuilder />
+
+                <div className="card backend-status-mini">
+                  <p>Backend Status:
+                    <span className={serverMessage && serverMessage !== 'Backend not connected' ? 'status-text online' : 'status-text offline'}>
+                      {serverMessage || 'Connecting...'}
+                    </span>
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="landing-content">

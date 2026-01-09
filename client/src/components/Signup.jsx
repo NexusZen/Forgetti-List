@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ShoppingCart } from 'lucide-react';
 import '../App.css';
 
 const Signup = ({ onLogin }) => {
@@ -24,8 +25,7 @@ const Signup = ({ onLogin }) => {
         setError('');
 
         if (password !== confirmPassword) {
-            setError('Passwords do not match');
-            return;
+            return setError('Passwords do not match');
         }
 
         setLoading(true);
@@ -33,24 +33,17 @@ const Signup = ({ onLogin }) => {
         try {
             const response = await fetch('http://localhost:5000/api/auth/register', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, email, password }),
             });
 
             const data = await response.json();
 
             if (data.success) {
-                // Store token and user data
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.data));
-
-                if (onLogin) {
-                    onLogin(data.data);
-                } else {
-                    navigate('/'); // Fallback
-                }
+                if (onLogin) onLogin(data.data);
+                navigate('/');
             } else {
                 setError(data.message || 'Registration failed');
             }
@@ -62,76 +55,58 @@ const Signup = ({ onLogin }) => {
     };
 
     return (
-        <div className="auth-container">
-            <div className="card auth-card">
-                <h2>Create Account</h2>
-                <p className="subtitle">Sign up to get started</p>
+        <div className="auth-page">
+            <div className="auth-box">
+                <div className="logo-container" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
+                    <img src="/logo.png" alt="Forgetti-List Logo" style={{ maxWidth: '200px', height: 'auto' }} />
+                </div>
+                <p className="text-gray mb-4">Create your account</p>
 
-                {error && <div className="error-message">{error}</div>}
+                {error && <div className="alert error">{error}</div>}
 
-                <form onSubmit={handleSubmit} className="auth-form">
-                    <div className="form-group">
-                        <label htmlFor="username">Username</label>
-                        <input
-                            type="text"
-                            id="username"
-                            name="username"
-                            placeholder="Choose a username"
-                            value={username}
-                            onChange={handleChange}
-                            required
-                            minLength="3"
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="email">Email</label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            placeholder="Enter your email"
-                            value={email}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="password">Password</label>
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            placeholder="Create a password"
-                            value={password}
-                            onChange={handleChange}
-                            required
-                            minLength="6"
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="confirmPassword">Confirm Password</label>
-                        <input
-                            type="password"
-                            id="confirmPassword"
-                            name="confirmPassword"
-                            placeholder="Confirm your password"
-                            value={confirmPassword}
-                            onChange={handleChange}
-                            required
-                            minLength="6"
-                        />
-                    </div>
-
-                    <button type="submit" disabled={loading} className="btn-primary">
+                <form onSubmit={handleSubmit}>
+                    <input
+                        type="text"
+                        name="username"
+                        placeholder="Username"
+                        value={username}
+                        onChange={handleChange}
+                        required
+                        minLength="3"
+                    />
+                    <input
+                        type="email"
+                        name="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={handleChange}
+                        required
+                    />
+                    <input
+                        type="password"
+                        name="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={handleChange}
+                        required
+                        minLength="6"
+                    />
+                    <input
+                        type="password"
+                        name="confirmPassword"
+                        placeholder="Confirm Password"
+                        value={confirmPassword}
+                        onChange={handleChange}
+                        required
+                        minLength="6"
+                    />
+                    <button type="submit" disabled={loading} className="btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
                         {loading ? 'Creating Account...' : 'Sign Up'}
                     </button>
                 </form>
 
-                <p className="auth-footer">
-                    Already have an account? <span onClick={() => navigate('/login')} className="link">Sign In</span>
+                <p className="mt-4 text-gray">
+                    Already have an account? <span onClick={() => navigate('/login')} style={{ color: '#7C3AED', cursor: 'pointer', fontWeight: 'bold' }}>Sign In</span>
                 </p>
             </div>
         </div>

@@ -10,15 +10,16 @@ const GroceryListSchema = new mongoose.Schema({
         type: String,
         default: 'My Grocery List'
     },
-    items: {
-        type: [String], // Array of item names
-        validate: {
-            validator: function (val) {
-                return val.length <= 50; // Enforce maximum of 50 items
-            },
-            message: 'Grocery list cannot exceed 50 items'
+    items: [{
+        name: {
+            type: String,
+            required: true
+        },
+        puzzle: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Puzzle'
         }
-    },
+    }],
     createdAt: {
         type: Date,
         default: Date.now

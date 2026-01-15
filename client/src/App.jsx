@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, List, Plus, X } from 'lucide-react';
+import { ShoppingCart, User, List, Plus, X, Trash } from 'lucide-react';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import GroceryListBuilder from './components/GroceryListBuilder';
 import ListDetails from './components/ListDetails';
 import './App.css';
+
+/* ... imports remain same ... */
 
 /* 
   Dashboard Component 
@@ -18,6 +20,7 @@ const Dashboard = ({ user, serverMessage, onLogout }) => {
   const [lists, setLists] = useState([]);
   const [loadingLists, setLoadingLists] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
+  const [listToDelete, setListToDelete] = useState(null);
 
   // Fetch lists when tab is 'Lists'
   useEffect(() => {
@@ -41,6 +44,36 @@ const Dashboard = ({ user, serverMessage, onLogout }) => {
       console.error('Failed to fetch lists', err);
     } finally {
       setLoadingLists(false);
+    }
+  };
+
+  // Trigger modal
+  const requestDeleteList = (e, listId) => {
+    e.stopPropagation();
+    setListToDelete(listId);
+  };
+
+  // Perform delete
+  const confirmDelete = async () => {
+    if (!listToDelete) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/grocery/${listToDelete}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setLists(prev => prev.filter(l => l._id !== listToDelete));
+        setListToDelete(null); // Close modal
+      } else {
+        alert(data.message || "Failed to delete list");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Error deleting list");
     }
   };
 
@@ -102,15 +135,80 @@ const Dashboard = ({ user, serverMessage, onLogout }) => {
               <p className="text-center text-gray">Loading lists...</p>
             ) : lists.length > 0 ? (
               <div className="lists-grid">
-                {lists.map(list => (
-                  <div key={list._id} className="grocery-list-item" onClick={() => setSelectedList(list)}>
-                    <span className="list-name">{list.name}</span>
-                    <div className="list-meta">
-                      <span>{list.items.length} Items</span>
-                      <span>{new Date(list.createdAt).toLocaleDateString()}</span>
+                {lists.map(list => {
+                  // Calculate Status
+                  let total = 0;
+                  let solved = 0;
+                  let failed = 0;
+                  let pending = 0;
+
+                  if (list.items && Array.isArray(list.items)) {
+                    total = list.items.length;
+                    list.items.forEach(item => {
+                      if (item.puzzle) {
+                        if (item.puzzle.status === 'solved') solved++;
+                        else if (item.puzzle.status === 'failed') failed++;
+                        else pending++;
+                      } else {
+                        // Default legacy items as pending or ignore? 
+                        // Assuming pending for safety to keep it Purple if not valid
+                        pending++;
+                      }
+                    });
+                  }
+
+                  let borderColor = '#7C3AED'; // Purple (Default/In Progress)
+
+                  if (total > 0 && pending === 0) {
+                    if (failed === 0) {
+                      borderColor = '#10B981'; // Green (Perfect)
+                    } else {
+                      borderColor = '#EF4444'; // Red (Finished but with errors)
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={list._id}
+                      className="grocery-list-item"
+                      onClick={() => setSelectedList(list)}
+                      style={{ '--status-color': borderColor }}
+                    >
+                      <span className="list-name">{list.name}</span>
+                      <div className="list-meta">
+                        <span>{list.items.length} Items</span>
+                        <span>{new Date(list.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {total > 0 && pending === 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: borderColor }}>
+                            {failed === 0 ? 'COMPLETED' : 'FINISHED'}
+                          </div>
+                          <button
+                            className="btn-delete-list"
+                            onClick={(e) => requestDeleteList(e, list._id)}
+                            title="Delete List"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#EF4444',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = '#FEE2E2'}
+                            onMouseLeave={(e) => e.target.style.background = 'none'}
+                          >
+                            <Trash size={16} />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center text-gray" style={{ marginTop: '4rem' }}>
@@ -132,7 +230,13 @@ const Dashboard = ({ user, serverMessage, onLogout }) => {
         )}
 
         {activeTab === 'Lists' && selectedList && (
-          <ListDetails list={selectedList} onBack={() => setSelectedList(null)} />
+          <ListDetails
+            list={selectedList}
+            onBack={() => {
+              setSelectedList(null);
+              fetchLists(); // Refresh data to show updated status/colors
+            }}
+          />
         )}
 
         {activeTab === 'Profile' && (
@@ -170,6 +274,51 @@ const Dashboard = ({ user, serverMessage, onLogout }) => {
               <X size={24} />
             </button>
             <GroceryListBuilder onListCreated={handleListCreated} />
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {listToDelete && (
+        <div className="modal-overlay" style={{ zIndex: 200 }}>
+          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center', padding: '2.5rem' }}>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{
+                width: '60px', height: '60px', borderRadius: '50%', background: '#FEE2E2',
+                color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 1rem'
+              }}>
+                <Trash size={32} />
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', color: '#1F2937' }}>Delete List?</h3>
+              <p style={{ color: '#6B7280', margin: 0 }}>
+                Are you sure you want to remove this completed list? This action cannot be undone.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => setListToDelete(null)}
+                style={{
+                  padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid #D1D5DB',
+                  background: 'white', color: '#374151', fontWeight: '600', cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                style={{
+                  padding: '0.8rem 1.5rem', borderRadius: '12px', border: 'none',
+                  background: '#EF4444', color: 'white', fontWeight: '600', cursor: 'pointer',
+                  boxShadow: '0 4px 6px -1px rgba(220, 38, 38, 0.3)',
+                  fontSize: '1rem'
+                }}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

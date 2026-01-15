@@ -17,7 +17,7 @@ const PuzzleSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['wordle', 'jumble'],
+        enum: ['wordle', 'jumble', 'word_grid'],
         required: true
     },
     status: {
@@ -31,12 +31,18 @@ const PuzzleSchema = new mongoose.Schema({
     },
     maxAttempts: {
         type: Number,
-        default: 6 // Default for Wordle, Jumble might be infinite or different
+        default: 6
     },
-    // Store puzzle-specific data if needed, e.g. scrambled word for jumble
+    // Store puzzle-specific data
     data: {
         scrambledWord: String, // For jumble
-        guesses: [String]      // For wordle
+        guesses: [String],     // For wordle
+        grid: [[String]],      // For word_grid (2D array of chars)
+        solution: [{           // For word_grid (path)
+            row: Number,
+            col: Number,
+            char: String
+        }]
     },
     createdAt: {
         type: Date,

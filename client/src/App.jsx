@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, List, Plus, X, Trash } from 'lucide-react';
+import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon } from 'lucide-react';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import GroceryListBuilder from './components/GroceryListBuilder';
@@ -14,7 +14,7 @@ import './App.css';
   - Handles switching between Profile and Lists tabs
   - Displays the FAB and Modals
 */
-const Dashboard = ({ user, serverMessage, onLogout }) => {
+const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme }) => {
   const [activeTab, setActiveTab] = useState('Lists');
   const [showBuilder, setShowBuilder] = useState(false);
   const [lists, setLists] = useState([]);
@@ -116,6 +116,28 @@ const Dashboard = ({ user, serverMessage, onLogout }) => {
       <div className="content-wrapper">
         <div className="dashboard-header">
           <img src="/logo.png" alt="Logo" className="header-logo" />
+
+          <button
+            onClick={onToggleTheme}
+            style={{
+              background: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              marginRight: '1rem',
+              color: 'var(--text-dark)',
+              transition: 'all 0.2s'
+            }}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+
           <div className="user-profile-pill" onClick={() => setActiveTab('Profile')}>
             <span className="user-name">{user.username}</span>
             <div className="avatar-circle">
@@ -127,7 +149,7 @@ const Dashboard = ({ user, serverMessage, onLogout }) => {
         {activeTab === 'Lists' && !selectedList && (
           <div className="lists-view">
             <div style={{ marginBottom: '2rem' }}>
-              <h2 style={{ fontSize: '2rem', margin: 0, fontWeight: 700, color: '#1F2937' }}>My Grocery Lists</h2>
+              <h2 style={{ fontSize: '2rem', margin: 0, fontWeight: 700, color: 'var(--text-dark)' }}>My Grocery Lists</h2>
               <p className="text-gray">Manage your shopping efficiently.</p>
             </div>
 
@@ -330,14 +352,37 @@ const Dashboard = ({ user, serverMessage, onLogout }) => {
 function App() {
   const [serverMessage, setServerMessage] = useState('');
   const [user, setUser] = useState(null);
+  const [theme, setTheme] = useState('light');
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check auth
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) setUser(JSON.parse(storedUser));
+    // Load theme from local storage or prefer-color-scheme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
 
-    // Check backend
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+
+    if (token && savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+
+    // Check server status
     fetch('http://localhost:5000/')
       .then(res => res.text())
       .then(data => setServerMessage(data))
@@ -361,7 +406,13 @@ function App() {
       <Route path="/register" element={<Signup onLogin={handleLogin} />} />
       <Route path="/" element={
         user ? (
-          <Dashboard user={user} serverMessage={serverMessage} onLogout={handleLogout} />
+          <Dashboard
+            user={user}
+            serverMessage={serverMessage}
+            onLogout={handleLogout}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+          />
         ) : (
           <Login onLogin={handleLogin} /> // Default to login if not authenticated
         )

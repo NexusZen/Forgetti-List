@@ -1,4 +1,5 @@
 const Puzzle = require('../models/Puzzle');
+const GroceryList = require('../models/GroceryList');
 
 // Simple dictionary check (placeholder - could be expanded)
 const isValidWord = (word) => {
@@ -64,7 +65,7 @@ const generateWordGrid = (word) => {
 
 exports.verifyGuess = async (req, res) => {
     const { puzzleId } = req.params;
-    const { guess, status } = req.body; // status used for word_grid
+    const { guess, status } = req.body;
 
     try {
         const puzzle = await Puzzle.findById(puzzleId);
@@ -77,85 +78,115 @@ exports.verifyGuess = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Puzzle already completed' });
         }
 
+        let result = null;
+        let targetWord = puzzle.groceryItemName ? puzzle.groceryItemName.trim().toUpperCase() : '';
+
         // --- WORD GRID LOGIC ---
         if (puzzle.type === 'word_grid') {
             if (status === 'solved') {
                 puzzle.status = 'solved';
-                await puzzle.save();
-                return res.status(200).json({ success: true, status: 'solved' });
             } else if (status === 'failed') {
                 puzzle.status = 'failed';
-                await puzzle.save();
-                return res.status(200).json({ success: true, status: 'failed' });
-            }
-            return res.status(400).json({ success: false, message: 'Invalid status for Word Grid' });
-        }
-
-        // --- WORDLE LOGIC ---
-        if (puzzle.attempts >= puzzle.maxAttempts) {
-            puzzle.status = 'failed';
-            await puzzle.save();
-            return res.status(200).json({ success: false, message: 'Max attempts reached', status: 'failed' });
-        }
-
-        const targetWord = puzzle.groceryItemName.trim().toUpperCase();
-        const userGuess = guess.trim().toUpperCase();
-
-        if (userGuess.length !== targetWord.length) {
-            return res.status(400).json({ success: false, message: `Guess must be ${targetWord.length} letters long` });
-        }
-
-        const result = new Array(targetWord.length).fill(null).map(() => ({ letter: '', status: 'absent' }));
-        const targetLettersCount = {};
-
-        for (let char of targetWord) {
-            targetLettersCount[char] = (targetLettersCount[char] || 0) + 1;
-        }
-
-        // First pass: Find CORRECT letters (Green)
-        for (let i = 0; i < targetWord.length; i++) {
-            const letter = userGuess[i];
-            result[i].letter = letter;
-            if (letter === targetWord[i]) {
-                result[i].status = 'correct';
-                targetLettersCount[letter]--;
-            }
-        }
-
-        // Second pass: Find PRESENT letters (Yellow)
-        for (let i = 0; i < targetWord.length; i++) {
-            if (result[i].status === 'correct') continue;
-
-            const letter = userGuess[i];
-            if (targetLettersCount[letter] > 0) {
-                result[i].status = 'present';
-                targetLettersCount[letter]--;
             } else {
-                result[i].status = 'absent';
+                return res.status(400).json({ success: false, message: 'Invalid status for Word Grid' });
             }
         }
+        // --- WORDLE LOGIC ---
+        else {
+            if (puzzle.attempts >= puzzle.maxAttempts) {
+                puzzle.status = 'failed';
+                await puzzle.save();
+                return res.status(200).json({ success: false, message: 'Max attempts reached', status: 'failed' });
+            }
 
-        const isSolved = result.every(r => r.status === 'correct');
-        puzzle.attempts += 1;
+            const userGuess = guess ? guess.trim().toUpperCase() : '';
 
-        if (!puzzle.data) puzzle.data = {};
-        if (!puzzle.data.guesses) puzzle.data.guesses = [];
-        puzzle.data.guesses.push(userGuess);
+            if (userGuess.length !== targetWord.length) {
+                return res.status(400).json({ success: false, message: `Guess must be ${targetWord.length} letters long` });
+            }
 
-        if (isSolved) {
-            puzzle.status = 'solved';
-        } else if (puzzle.attempts >= puzzle.maxAttempts) {
-            puzzle.status = 'failed';
+            result = new Array(targetWord.length).fill(null).map(() => ({ letter: '', status: 'absent' }));
+            const targetLettersCount = {};
+
+            for (let char of targetWord) {
+                targetLettersCount[char] = (targetLettersCount[char] || 0) + 1;
+            }
+
+            // First pass: Find CORRECT letters (Green)
+            for (let i = 0; i < targetWord.length; i++) {
+                const letter = userGuess[i];
+                result[i].letter = letter;
+                if (letter === targetWord[i]) {
+                    result[i].status = 'correct';
+                    targetLettersCount[letter]--;
+                }
+            }
+
+            // Second pass: Find PRESENT letters (Yellow)
+            for (let i = 0; i < targetWord.length; i++) {
+                if (result[i].status === 'correct') continue;
+
+                const letter = userGuess[i];
+                if (targetLettersCount[letter] > 0) {
+                    result[i].status = 'present';
+                    targetLettersCount[letter]--;
+                } else {
+                    result[i].status = 'absent';
+                }
+            }
+
+            const isSolved = result.every(r => r.status === 'correct');
+            puzzle.attempts += 1;
+
+            if (!puzzle.data) puzzle.data = {};
+            if (!puzzle.data.guesses) puzzle.data.guesses = [];
+            puzzle.data.guesses.push(userGuess);
+
+            if (isSolved) {
+                puzzle.status = 'solved';
+            } else if (puzzle.attempts >= puzzle.maxAttempts) {
+                puzzle.status = 'failed';
+            }
         }
 
         await puzzle.save();
+
+        let pointsReceived = false;
+        let newTotalPoints = req.user.points || 0;
+
+        // Check if this solved puzzle completes a list
+        if (puzzle.status === 'solved') {
+            const list = await GroceryList.findOne({
+                'items.puzzle': puzzle._id
+            }).populate('items.puzzle');
+
+            if (list) {
+                const allSolved = list.items.every(item =>
+                    item.puzzle && item.puzzle.status === 'solved'
+                );
+
+                if (allSolved && !list.pointsAwarded) {
+                    list.pointsAwarded = true;
+                    await list.save();
+
+                    // Increment user points
+                    req.user.points = (req.user.points || 0) + 1;
+                    await req.user.save();
+
+                    pointsReceived = true;
+                    newTotalPoints = req.user.points;
+                }
+            }
+        }
 
         res.status(200).json({
             success: true,
             status: puzzle.status,
             result: result,
             remainingAttempts: puzzle.maxAttempts - puzzle.attempts,
-            solution: (puzzle.status === 'failed' || puzzle.status === 'solved') ? targetWord : undefined
+            solution: (puzzle.status === 'failed' || puzzle.status === 'solved') ? targetWord : undefined,
+            pointsReceived,
+            newTotalPoints
         });
 
     } catch (err) {

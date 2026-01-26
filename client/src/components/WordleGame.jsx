@@ -18,6 +18,32 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
     // Derived local copy of puzzle data in case we need to fetch it
     const [activePuzzle, setActivePuzzle] = useState(typeof puzzle === 'object' ? puzzle : null);
 
+    // Helper to calculate feedback locally (to restore state or nice UI on load)
+    const calculateFeedback = (guess, target) => {
+        if (!guess || !target) return [];
+
+        const result = new Array(target.length).fill(null).map((_, i) => ({ letter: guess[i], status: 'absent' }));
+        const targetCount = {};
+        for (let char of target) targetCount[char] = (targetCount[char] || 0) + 1;
+
+        // Pass 1: Correct
+        for (let i = 0; i < target.length; i++) {
+            if (guess[i] === target[i]) {
+                result[i].status = 'correct';
+                targetCount[guess[i]]--;
+            }
+        }
+        // Pass 2: Present
+        for (let i = 0; i < target.length; i++) {
+            if (result[i].status === 'correct') continue;
+            if (targetCount[guess[i]] > 0) {
+                result[i].status = 'present';
+                targetCount[guess[i]]--;
+            }
+        }
+        return result;
+    };
+
     useEffect(() => {
         const initGame = async () => {
             // Check if we need to fetch
@@ -31,17 +57,24 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
                     });
                     const data = await res.json();
                     if (data.success) {
-                        setActivePuzzle(data.data);
-                        setGuesses(data.data.data?.guesses || []);
-                        setGameState(data.data.status);
+                        const fetchedPuzzle = data.data;
+                        setActivePuzzle(fetchedPuzzle);
+                        setGameState(fetchedPuzzle.status);
 
-                        if (data.data.groceryItemName) {
-                            setSolution(data.data.groceryItemName.trim().toUpperCase());
+                        let sol = '';
+                        if (fetchedPuzzle.groceryItemName) {
+                            sol = fetchedPuzzle.groceryItemName.trim().toUpperCase();
+                            setSolution(sol);
                         }
 
-                        // Check type after fetch
-                        if (data.data.type !== 'wordle') {
+                        if (fetchedPuzzle.type !== 'wordle') {
                             await switchType(puzzleId);
+                        } else {
+                            const existingGuesses = fetchedPuzzle.data?.guesses || [];
+                            setGuesses(existingGuesses);
+                            if (sol && existingGuesses.length > 0) {
+                                setFeedback(existingGuesses.map(g => calculateFeedback(g, sol)));
+                            }
                         }
                     } else {
                         throw new Error(data.message || "Failed to load puzzle");
@@ -54,13 +87,22 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
                 }
             } else {
                 // We have local data
+                let sol = solution;
+                if (activePuzzle.groceryItemName && !sol) {
+                    sol = activePuzzle.groceryItemName.trim().toUpperCase();
+                    setSolution(sol);
+                }
+
                 if (activePuzzle.type !== 'wordle') {
                     setIsLoading(true);
                     await switchType(puzzleId);
                     setIsLoading(false);
-                }
-                if (activePuzzle.groceryItemName && !solution) {
-                    setSolution(activePuzzle.groceryItemName.trim().toUpperCase());
+                } else {
+                    const existingGuesses = activePuzzle.data?.guesses || [];
+                    if (existingGuesses.length > 0 && feedback.length === 0 && sol) {
+                        // Restore feedback if missing
+                        setFeedback(existingGuesses.map(g => calculateFeedback(g, sol)));
+                    }
                 }
             }
         };
@@ -77,12 +119,13 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
                 });
                 const data = await res.json();
                 if (data.success) {
+                    setActivePuzzle(data.data); // Update to new puzzle type details
                     setGuesses([]);
                     setFeedback([]);
                     setGameState('pending');
                     setMessage('');
                     setCurrentGuess('');
-                    setSolution('');
+                    // Solution remains same (groceryItemName doesn't change)
                 } else {
                     setMessage(data.message || "Failed to initialize game type.");
                 }
@@ -142,7 +185,7 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
                     setGameState(data.status);
                     if (data.status === 'solved') {
                         setMessage('You got it!');
-                        setTimeout(() => onComplete(true), 1500);
+                        setTimeout(() => onComplete(true, data.newTotalPoints), 1500);
                     } else {
                         setMessage(`Game Over! The word was ${data.solution}`);
                         setSolution(data.solution);

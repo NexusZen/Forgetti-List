@@ -83,17 +83,18 @@ const WordSearchGame = ({ puzzle, onComplete, onClose }) => {
         setMessage('You found it!');
 
         try {
-            await fetch(`http://127.0.0.1:5000/api/puzzle/${puzzle._id}/verify`, {
+            const res = await fetch(`http://127.0.0.1:5000/api/puzzle/${puzzle._id}/verify`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ status: 'solved' })
+                body: JSON.stringify({ status: 'solved', guess: 'IGNORED' }) // guess is required by backend validation? check controller
             });
+            const data = await res.json();
 
             setTimeout(() => {
-                onComplete(true);
+                onComplete(true, data.newTotalPoints);
             }, 1500);
         } catch (err) {
             console.error(err);

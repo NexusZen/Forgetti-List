@@ -28,6 +28,10 @@ const UserSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    points: {
+        type: Number,
+        default: 0
     }
 });
 

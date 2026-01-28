@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon } from 'lucide-react';
+import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon, Trophy } from 'lucide-react';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import GroceryListBuilder from './components/GroceryListBuilder';
 import ListDetails from './components/ListDetails';
+import Leaderboard from './components/Leaderboard';
 import './App.css';
 
 /* ... imports remain same ... */
@@ -101,6 +102,14 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
           >
             <List size={20} />
             Lists
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'Leaderboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('Leaderboard')}
+          >
+            <Trophy size={20} />
+            Leaderboard
           </button>
           <button
             className={`nav-tab ${activeTab === 'Profile' ? 'active' : ''}`}
@@ -286,6 +295,10 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
           />
         )}
 
+        {activeTab === 'Leaderboard' && (
+          <Leaderboard />
+        )}
+
         {activeTab === 'Profile' && (
           <div className="profile-view">
             <div style={{ textAlign: 'center', marginTop: '2rem' }}>
@@ -299,7 +312,37 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
               <h2 style={{ margin: '0' }}>{user.username}</h2>
               <p className="text-gray">{user.email}</p>
 
-              <div style={{ marginTop: '2rem' }}>
+              <div className="profile-stats" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '1rem',
+                margin: '2rem auto',
+                maxWidth: '400px'
+              }}>
+                <div style={{
+                  background: 'var(--bg-card)', // Adapted to support theme
+                  padding: '1.5rem',
+                  borderRadius: '16px',
+                  textAlign: 'center',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '0.2rem' }}>{user.points || 0}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '500', opacity: 0.8 }}>Total Points</div>
+                </div>
+
+                <div style={{
+                  background: 'var(--bg-card)',
+                  padding: '1.5rem',
+                  borderRadius: '16px',
+                  textAlign: 'center',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10B981', marginBottom: '0.2rem' }}>{user.puzzlesSolved || 0}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '500', opacity: 0.8 }}>Puzzles Solved</div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                 <button onClick={onLogout} className="btn-primary" style={{ backgroundColor: '#EF4444' }}>
                   Logout
                 </button>
@@ -405,6 +448,19 @@ function App() {
 
     if (token && savedUser) {
       setUser(JSON.parse(savedUser));
+
+      // Fetch fresh user data (points, puzzlesSolved)
+      fetch('http://localhost:5000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setUser(data.data);
+            localStorage.setItem('user', JSON.stringify(data.data));
+          }
+        })
+        .catch(err => console.error("Failed to refresh user data", err));
     }
 
     // Check server status

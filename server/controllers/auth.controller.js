@@ -1,9 +1,14 @@
 const User = require('../models/User');
+const Leaderboard = require('../models/Leaderboard');
+const Puzzle = require('../models/Puzzle');
 
 // Helper to get token from model, create cookie and send response
-const sendTokenResponse = (user, statusCode, res) => {
+const sendTokenResponse = async (user, statusCode, res) => {
     // Create token
     const token = user.getSignedJwtToken();
+
+    // Get puzzle stats
+    const puzzlesSolved = await Puzzle.countDocuments({ user: user._id, status: 'solved' });
 
     res.status(statusCode).json({
         success: true,
@@ -12,7 +17,9 @@ const sendTokenResponse = (user, statusCode, res) => {
             _id: user._id,
             username: user.username,
             email: user.email,
-            createdAt: user.createdAt
+            createdAt: user.createdAt,
+            points: user.points || 0,
+            puzzlesSolved
         }
     });
 };
@@ -37,7 +44,14 @@ exports.register = async (req, res) => {
             password
         });
 
-        sendTokenResponse(user, 201, res);
+        // Initialize Leaderboard
+        await Leaderboard.create({
+            user: user._id,
+            username: user.username,
+            totalPoints: 0
+        });
+
+        await sendTokenResponse(user, 201, res);
 
     } catch (err) {
         console.error(err);
@@ -71,7 +85,7 @@ exports.login = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
 
-        sendTokenResponse(user, 200, res);
+        await sendTokenResponse(user, 200, res);
 
     } catch (err) {
         console.error(err);
@@ -84,8 +98,13 @@ exports.login = async (req, res) => {
 // @access  Private
 exports.getMe = async (req, res) => {
     // req.user is set by authentication middleware
+    const puzzlesSolved = await Puzzle.countDocuments({ user: req.user._id, status: 'solved' });
+
+    const user = req.user.toObject();
+    user.puzzlesSolved = puzzlesSolved;
+
     res.status(200).json({
         success: true,
-        data: req.user
+        data: user
     });
 };

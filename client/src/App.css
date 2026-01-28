@@ -1453,3 +1453,17 @@ input:focus {
   cursor: not-allowed;
   transform: none;
 }
+/* Leaderboard Styles */
+.leaderboard-container { padding: 2rem; max-width: 800px; margin: 0 auto; }
+.leaderboard-header-section { text-align: center; margin-bottom: 3rem; color: var(--text-dark); }
+.leaderboard-header-section h2 { font-size: 2.5rem; margin: 0.5rem 0; }
+.rankings-list { background: var(--surface-color); border-radius: 16px; box-shadow: var(--shadow-md); overflow: hidden; }
+.ranking-header { display: grid; grid-template-columns: 80px 1fr 100px; padding: 1rem 1.5rem; background: var(--bg-card); font-weight: bold; color: var(--text-dark); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em; }
+.ranking-item { display: grid; grid-template-columns: 80px 1fr 100px; padding: 1rem 1.5rem; align-items: center; border-bottom: 1px solid var(--border-color); transition: background 0.2s; }
+.ranking-item:last-child { border-bottom: none; }
+.ranking-item:hover { background: var(--surface-hover); }
+.current-user-rank { background: rgba(124, 58, 237, 0.1) !important; border-left: 4px solid var(--primary); }
+.rank-position { font-weight: bold; color: var(--text-dark); display: flex; align-items: center; }
+.rank-user { font-size: 1.1rem; font-weight: 500; color: var(--text-dark); }
+.rank-points { font-weight: bold; color: var(--primary); text-align: right; }
+.empty-leaderboard { padding: 3rem; text-align: center; color: #6B7280; }

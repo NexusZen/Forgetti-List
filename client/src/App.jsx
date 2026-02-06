@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon, Trophy } from 'lucide-react';
+import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon, Trophy, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import GroceryListBuilder from './components/GroceryListBuilder';
@@ -22,6 +22,19 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
   const [loadingLists, setLoadingLists] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
   const [listToDelete, setListToDelete] = useState(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [exitingIds, setExitingIds] = useState([]);
+
+  const randomWelcome = useMemo(() => {
+    const messages = [
+      `Another day of suffering, ${user.username}!`,
+      `I'm sure you're happy to be back, ${user.username}.`,
+      `Welcome to the world's most pointless list, ${user.username}!`,
+      `Ready to complicate your life, ${user.username}?`,
+      `Oh look, it's ${user.username} again...`
+    ];
+    return messages[Math.floor(Math.random() * messages.length)];
+  }, [user.username]);
 
   // Fetch lists when tab is 'Lists'
   useEffect(() => {
@@ -30,8 +43,13 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
     }
   }, [activeTab]);
 
+  /* Fetch Lists without full reload flicker */
   const fetchLists = async () => {
-    setLoadingLists(true);
+    // Only show loading state if we have no lists (initial load)
+    if (lists.length === 0) {
+      setLoadingLists(true);
+    }
+
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:5000/api/grocery', {
@@ -44,7 +62,9 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
     } catch (err) {
       console.error('Failed to fetch lists', err);
     } finally {
-      setLoadingLists(false);
+      if (lists.length === 0) {
+        setLoadingLists(false);
+      }
     }
   };
 
@@ -55,27 +75,43 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
   };
 
   // Perform delete
+  /* Animated Delete Handler */
   const confirmDelete = async () => {
     if (!listToDelete) return;
+    const id = listToDelete;
 
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/grocery/${listToDelete}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+    // Start exit animation and close modal immediately
+    setExitingIds(prev => [...prev, id]);
+    setListToDelete(null);
 
-      if (data.success) {
-        setLists(prev => prev.filter(l => l._id !== listToDelete));
-        setListToDelete(null); // Close modal
-      } else {
-        alert(data.message || "Failed to delete list");
+    // Wait for animation (400ms) before actual deletion/removal
+    setTimeout(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`http://localhost:5000/api/grocery/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          setLists(prev => prev.filter(l => l._id !== id));
+          // Optional: fetchLists(); to sync points/stats if server side logic updated user
+          // But for smooth removal, local filter is enough. 
+          // We can fetch user points separately if needed.
+          // fetchLists(); // Maybe delay this further or skip?
+        } else {
+          alert(data.message || "Failed to delete list");
+          fetchLists(); // Restore
+        }
+      } catch (err) {
+        console.error("Delete error:", err);
+        alert("Error deleting list");
+        fetchLists();
+      } finally {
+        setExitingIds(prev => prev.filter(eid => eid !== id));
       }
-    } catch (err) {
-      console.error("Delete error:", err);
-      alert("Error deleting list");
-    }
+    }, 400);
   };
 
   const handleListCreated = () => {
@@ -85,11 +121,33 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
   };
 
   return (
-    <div className="app-container">
-      {/* Sidebar / Header */}
+    <div className={`app-container ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+      {/* Sidebar */}
       <header className="app-header">
-        <div className="logo-container">
-          <img src="/logo.png" alt="Forgetti-List Logo" className="logo-img" />
+        <div className="logo-container" style={{ margin: 0, paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)', width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+          <img
+            src={isSidebarCollapsed ? "/small_logo.png" : "/logo.png"}
+            alt="Forgetti-List"
+            className={isSidebarCollapsed ? "logo-collapsed" : ""}
+            style={{
+              height: isSidebarCollapsed ? '40px' : '80px',
+              width: 'auto',
+              maxWidth: '100%',
+              transition: 'all 0.3s',
+              objectFit: 'contain'
+            }}
+          />
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            style={{
+              position: 'absolute', right: '-12px', top: '50%', transform: 'translateY(-50%)',
+              background: 'var(--surface-color)', border: '1px solid var(--border-color)',
+              borderRadius: '50%', padding: '4px', cursor: 'pointer',
+              boxShadow: 'var(--shadow-sm)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+          >
+            {isSidebarCollapsed ? <ChevronRight size={14} color="var(--text-dark)" /> : <ChevronLeft size={14} color="var(--text-dark)" />}
+          </button>
         </div>
 
         <nav className="nav-tabs">
@@ -99,181 +157,167 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
               setActiveTab('Lists');
               setSelectedList(null);
             }}
+            title="My Lists"
           >
             <List size={20} />
-            Lists
+            <span>Lists</span>
           </button>
 
           <button
             className={`nav-tab ${activeTab === 'Leaderboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('Leaderboard')}
+            title="Leaderboard"
           >
             <Trophy size={20} />
-            Leaderboard
+            <span>Leaderboard</span>
           </button>
           <button
             className={`nav-tab ${activeTab === 'Profile' ? 'active' : ''}`}
             onClick={() => setActiveTab('Profile')}
+            title="Profile"
           >
             <User size={20} />
-            Profile
+            <span>Profile</span>
           </button>
         </nav>
+
+        <div className="sidebar-footer">
+          {/* Theme Toggle */}
+          <button className="sidebar-user-item" onClick={onToggleTheme} title="Toggle Theme">
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            <span className="sidebar-details">Theme: {theme === 'dark' ? 'Dark' : 'Light'}</span>
+          </button>
+
+          {/* Logout */}
+          <button className="sidebar-user-item" onClick={onLogout} title="Logout">
+            <LogOut size={20} />
+            <span className="sidebar-details">Logout</span>
+          </button>
+
+          {/* User Profile */}
+          <div className="sidebar-user-item" style={{ marginTop: '0.5rem', background: 'var(--surface-hover)', cursor: 'default' }}>
+            <div className="avatar-circle" style={{ width: '32px', height: '32px', minWidth: '32px' }}>
+              <User size={16} color="#7C3AED" />
+            </div>
+            <div className="sidebar-details" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden' }}>
+              <span style={{ fontWeight: '600', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{user.username}</span>
+              <span style={{ fontSize: '0.75rem', color: 'gray' }}>{user.points || 0} pts</span>
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* Main Content */}
       <div className="content-wrapper">
-        <div className="dashboard-header">
-          <img src="/logo.png" alt="Logo" className="header-logo" />
-
-          {/* Points Display */}
-          <div className="points-display" style={{
-            marginRight: '1rem',
-            fontWeight: 'bold',
-            color: 'var(--primary)',
-            background: 'var(--surface-color)',
-            padding: '0.4rem 0.8rem',
-            borderRadius: '20px',
-            border: '1px solid var(--border-color)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            boxShadow: 'var(--shadow-sm)'
-          }}>
-            <img src="/points.png" alt="Points" style={{ height: '24px', width: 'auto' }} />
-            <span>{user.points || 0} pts</span>
-          </div>
-
-          <button
-            onClick={onToggleTheme}
-            style={{
-              background: 'var(--surface-color)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              marginRight: '1rem',
-              color: 'var(--text-dark)',
-              transition: 'all 0.2s'
-            }}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-
-          <div className="user-profile-pill" onClick={() => setActiveTab('Profile')}>
-            <span className="user-name">{user.username}</span>
-            <div className="avatar-circle">
-              <User size={20} color="#7C3AED" />
-            </div>
-          </div>
-        </div>
 
         {activeTab === 'Lists' && !selectedList && (
           <div className="lists-view">
             <div style={{ marginBottom: '2rem' }}>
+              <img src="/logo.png" alt="Forgetti-List" style={{ width: '300px', maxWidth: '100%', display: 'block', marginBottom: '1rem' }} />
+              <p style={{
+                fontSize: '1.5rem', margin: '0 0 0.5rem 0', fontWeight: '600',
+                color: 'var(--primary)', fontStyle: 'italic'
+              }}>
+                {randomWelcome}
+              </p>
               <h2 style={{ fontSize: '2rem', margin: 0, fontWeight: 700, color: 'var(--text-dark)' }}>My Grocery Lists</h2>
-              <p className="text-gray">Manage your shopping efficiently.</p>
             </div>
 
-            {loadingLists ? (
-              <p className="text-center text-gray">Loading lists...</p>
-            ) : lists.length > 0 ? (
-              <div className="lists-grid">
-                {lists.map(list => {
-                  // Calculate Status
-                  let total = 0;
-                  let solved = 0;
-                  let failed = 0;
-                  let pending = 0;
+            <div className="lists-box">
+              {loadingLists ? (
+                <p className="text-center text-gray">Loading lists...</p>
+              ) : lists.length > 0 ? (
+                <div className="lists-grid">
+                  {lists.map(list => {
+                    // Calculate Status
+                    let total = 0;
+                    let solved = 0;
+                    let failed = 0;
+                    let pending = 0;
 
-                  if (list.items && Array.isArray(list.items)) {
-                    total = list.items.length;
-                    list.items.forEach(item => {
-                      if (item.puzzle) {
-                        if (item.puzzle.status === 'solved') solved++;
-                        else if (item.puzzle.status === 'failed') failed++;
-                        else pending++;
-                      } else {
-                        // Default legacy items as pending or ignore? 
-                        // Assuming pending for safety to keep it Purple if not valid
-                        pending++;
-                      }
-                    });
-                  }
-
-                  let borderColor = '#7C3AED'; // Purple (Default/In Progress)
-
-                  if (total > 0 && pending === 0) {
-                    if (failed === 0) {
-                      borderColor = '#10B981'; // Green (Perfect)
-                    } else {
-                      borderColor = '#EF4444'; // Red (Finished but with errors)
+                    if (list.items && Array.isArray(list.items)) {
+                      total = list.items.length;
+                      list.items.forEach(item => {
+                        if (item.puzzle) {
+                          if (item.puzzle.status === 'solved') solved++;
+                          else if (item.puzzle.status === 'failed') failed++;
+                          else pending++;
+                        } else {
+                          // Default legacy items as pending or ignore? 
+                          // Assuming pending for safety to keep it Purple if not valid
+                          pending++;
+                        }
+                      });
                     }
-                  }
 
-                  return (
-                    <div
-                      key={list._id}
-                      className="grocery-list-item"
-                      onClick={() => setSelectedList(list)}
-                      style={{ '--status-color': borderColor }}
-                    >
-                      <span className="list-name">{list.name}</span>
-                      <div className="list-meta">
-                        <span>{list.items.length} Items</span>
-                        <span>{new Date(list.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      {total > 0 && pending === 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                          <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: borderColor }}>
-                            {failed === 0 ? 'COMPLETED' : 'FINISHED'}
-                          </div>
-                          <button
-                            className="btn-delete-list"
-                            onClick={(e) => requestDeleteList(e, list._id)}
-                            title="Delete List"
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#EF4444',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              borderRadius: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.target.style.background = '#FEE2E2'}
-                            onMouseLeave={(e) => e.target.style.background = 'none'}
-                          >
-                            <Trash size={16} />
-                          </button>
+                    let borderColor = '#7C3AED'; // Purple (Default/In Progress)
+
+                    if (total > 0 && pending === 0) {
+                      if (failed === 0) {
+                        borderColor = '#10B981'; // Green (Perfect)
+                      } else {
+                        borderColor = '#EF4444'; // Red (Finished but with errors)
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={list._id}
+                        className={`grocery-list-item ${exitingIds.includes(list._id) ? 'exiting' : ''}`}
+                        onClick={() => setSelectedList(list)}
+                        style={{ '--status-color': borderColor }}
+                      >
+                        <span className="list-name">{list.name}</span>
+                        <div className="list-meta">
+                          <span>{list.items.length} Items</span>
+                          <span>{new Date(list.createdAt).toLocaleDateString()}</span>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center text-gray" style={{ marginTop: '4rem' }}>
-                <div style={{ background: '#F3F4F6', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                  <List size={40} color="#9CA3AF" />
+                        {total > 0 && pending === 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: borderColor }}>
+                              {failed === 0 ? 'COMPLETED' : 'FINISHED'}
+                            </div>
+                            <button
+                              className="btn-delete-list"
+                              onClick={(e) => requestDeleteList(e, list._id)}
+                              title="Delete List"
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#EF4444',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'background 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.target.style.background = '#FEE2E2'}
+                              onMouseLeave={(e) => e.target.style.background = 'none'}
+                            >
+                              <Trash size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <h3 style={{ color: '#374151', margin: '0 0 0.5rem 0' }}>No lists yet</h3>
-                <p>Click the + button below to create your first list!</p>
-              </div>
-            )}
+              ) : (
+                <div className="text-center text-gray" style={{ marginTop: '4rem' }}>
+                  <div style={{ background: '#F3F4F6', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                    <List size={40} color="#9CA3AF" />
+                  </div>
+                  <h3 style={{ color: '#374151', margin: '0 0 0.5rem 0' }}>No lists yet</h3>
+                  <p>Click the + button below to create your first list!</p>
+                </div>
+              )}
 
-            {/* Floating Action Button */}
-            <div className="fab-container">
-              <button className="fab" onClick={() => setShowBuilder(true)}>
-                <Plus size={32} strokeWidth={3} />
-              </button>
+              <div style={{ position: 'absolute', bottom: '2rem', right: '2rem', zIndex: 10 }}>
+                <button className="fab" onClick={() => setShowBuilder(true)}>
+                  <Plus size={32} strokeWidth={3} />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -281,6 +325,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
         {activeTab === 'Lists' && selectedList && (
           <ListDetails
             list={selectedList}
+            theme={theme}
             onBack={() => {
               setSelectedList(null);
               fetchLists(); // Refresh data to show updated status/colors
@@ -300,27 +345,27 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
         )}
 
         {activeTab === 'Profile' && (
-          <div className="profile-view">
-            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <div className="profile-view" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '2rem' }}>
+            <div className="lists-box" style={{ width: '100%', maxWidth: '600px', textAlign: 'center', minHeight: 'auto', paddingBottom: '3rem' }}>
               <div style={{
-                width: '100px', height: '100px', background: '#E5E7EB',
+                width: '100px', height: '100px', background: 'var(--card-bg)',
                 borderRadius: '50%', margin: '0 auto 1rem', display: 'flex',
                 alignItems: 'center', justifyContent: 'center'
               }}>
-                <User size={48} color="#9CA3AF" />
+                <User size={48} color="var(--primary)" />
               </div>
-              <h2 style={{ margin: '0' }}>{user.username}</h2>
-              <p className="text-gray">{user.email}</p>
+              <h2 style={{ margin: '0', color: 'var(--text-dark)' }}>{user.username}</h2>
+              <p className="text-gray" style={{ marginBottom: '2rem' }}>{user.email}</p>
 
               <div className="profile-stats" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
                 gap: '1rem',
-                margin: '2rem auto',
+                margin: '0 auto 3rem',
                 maxWidth: '400px'
               }}>
                 <div style={{
-                  background: 'var(--bg-card)', // Adapted to support theme
+                  background: 'var(--card-bg)',
                   padding: '1.5rem',
                   borderRadius: '16px',
                   textAlign: 'center',
@@ -331,7 +376,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
                 </div>
 
                 <div style={{
-                  background: 'var(--bg-card)',
+                  background: 'var(--card-bg)',
                   padding: '1.5rem',
                   borderRadius: '16px',
                   textAlign: 'center',
@@ -342,14 +387,15 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
                 </div>
               </div>
 
-              <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                <button onClick={onLogout} className="btn-primary" style={{ backgroundColor: '#EF4444' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginBottom: '2rem' }}>
+                <button onClick={onLogout} className="btn-primary" style={{ backgroundColor: '#EF4444', padding: '0.8rem 2.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <LogOut size={18} />
                   Logout
                 </button>
               </div>
 
-              <div style={{ marginTop: '4rem', fontSize: '0.9rem', color: '#9CA3AF' }}>
-                <p>Backend Status: <span style={{ color: serverMessage && serverMessage !== 'Backend not connected' ? '#10B981' : '#EF4444' }}>{serverMessage || 'Checking...'}</span></p>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-dark)', opacity: 0.6 }}>
+                Backend Status: <span style={{ color: serverMessage && serverMessage !== 'Backend not connected' ? '#10B981' : '#EF4444' }}>{serverMessage || 'Checking...'}</span>
               </div>
             </div>
           </div>
@@ -380,8 +426,8 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
               }}>
                 <Trash size={32} />
               </div>
-              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', color: '#1F2937' }}>Delete List?</h3>
-              <p style={{ color: '#6B7280', margin: 0 }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', color: 'var(--text-dark)' }}>Delete List?</h3>
+              <p style={{ color: 'var(--text-dark)', opacity: 0.7, margin: 0 }}>
                 Are you sure you want to remove this completed list? This action cannot be undone.
               </p>
             </div>

@@ -44,32 +44,34 @@ const Leaderboard = () => {
                 <p>Top players by points earned from completed lists.</p>
             </div>
 
-            <div className="rankings-list">
-                <div className="ranking-header">
-                    <span>Rank</span>
-                    <span>User</span>
-                    <span>Points</span>
-                </div>
-                {rankings.map((entry, index) => (
-                    <div
-                        key={entry._id}
-                        className={`ranking-item ${entry.user === currentUser?.id || entry.username === currentUser?.username ? 'current-user-rank' : ''}`}
-                    >
-                        <div className="rank-position">
-                            {getRankIcon(index)}
-                        </div>
-                        <div className="rank-user">
-                            <span className="rank-username">{entry.username}</span>
-                        </div>
-                        <div className="rank-points">
-                            {entry.totalPoints} pts
-                        </div>
+            <div className="lists-box">
+                <div className="rankings-list" style={{ boxShadow: 'none', borderRadius: '16px' }}>
+                    <div className="ranking-header">
+                        <span>Rank</span>
+                        <span>User</span>
+                        <span>Points</span>
                     </div>
-                ))}
+                    {rankings.map((entry, index) => (
+                        <div
+                            key={entry._id}
+                            className={`ranking-item ${entry.user === currentUser?.id || entry.username === currentUser?.username ? 'current-user-rank' : ''}`}
+                        >
+                            <div className="rank-position">
+                                {getRankIcon(index)}
+                            </div>
+                            <div className="rank-user">
+                                <span className="rank-username">{entry.username}</span>
+                            </div>
+                            <div className="rank-points">
+                                {entry.totalPoints} pts
+                            </div>
+                        </div>
+                    ))}
 
-                {rankings.length === 0 && (
-                    <div className="empty-leaderboard">No records yet. Be the first!</div>
-                )}
+                    {rankings.length === 0 && (
+                        <div className="empty-leaderboard">No records yet. Be the first!</div>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -23,6 +23,10 @@ const GroceryListSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    pointsAwarded: {
+        type: Boolean,
+        default: false
     }
 });
 

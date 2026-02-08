@@ -14,7 +14,7 @@ import './App.css';
   - Handles switching between Profile and Lists tabs
   - Displays the FAB and Modals
 */
-const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme }) => {
+const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpdateUser }) => {
   const [activeTab, setActiveTab] = useState('Lists');
   const [showBuilder, setShowBuilder] = useState(false);
   const [lists, setLists] = useState([]);
@@ -116,6 +116,24 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme }) => {
       <div className="content-wrapper">
         <div className="dashboard-header">
           <img src="/logo.png" alt="Logo" className="header-logo" />
+
+          {/* Points Display */}
+          <div className="points-display" style={{
+            marginRight: '1rem',
+            fontWeight: 'bold',
+            color: 'var(--primary)',
+            background: 'var(--surface-color)',
+            padding: '0.4rem 0.8rem',
+            borderRadius: '20px',
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <img src="/points.png" alt="Points" style={{ height: '24px', width: 'auto' }} />
+            <span>{user.points || 0} pts</span>
+          </div>
 
           <button
             onClick={onToggleTheme}
@@ -257,6 +275,13 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme }) => {
             onBack={() => {
               setSelectedList(null);
               fetchLists(); // Refresh data to show updated status/colors
+            }}
+            onUpdatePoints={(newPoints) => {
+              if (onUpdateUser) {
+                const updatedUser = { ...user, points: newPoints };
+                onUpdateUser(updatedUser);
+                localStorage.setItem('user', JSON.stringify(updatedUser)); // Persist locally!
+              }
             }}
           />
         )}
@@ -408,6 +433,7 @@ function App() {
         user ? (
           <Dashboard
             user={user}
+            onUpdateUser={setUser}
             serverMessage={serverMessage}
             onLogout={handleLogout}
             theme={theme}

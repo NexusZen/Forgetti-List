@@ -3,7 +3,7 @@ import { ArrowLeft, Calendar, Layout, Info, X } from 'lucide-react';
 import WordleGame from './WordleGame';
 import WordSearchGame from './WordSearchGame';
 
-const ListDetails = ({ list, onBack }) => {
+const ListDetails = ({ list, onBack, onUpdatePoints }) => {
     // Local state to track item statuses immediately
     const [localList, setLocalList] = useState(list);
 
@@ -48,7 +48,7 @@ const ListDetails = ({ list, onBack }) => {
         setActiveGame(type);
     };
 
-    const handleGameComplete = (success) => {
+    const handleGameComplete = (success, newPoints) => {
         // Close game modal
         setActiveGame(null);
 
@@ -73,6 +73,11 @@ const ListDetails = ({ list, onBack }) => {
 
         // Check for List Completion
         checkCompletion(updatedItems);
+
+        // Update Points if backend returned them
+        if (newPoints !== undefined && onUpdatePoints) {
+            onUpdatePoints(newPoints);
+        }
     };
 
     const checkCompletion = (items) => {

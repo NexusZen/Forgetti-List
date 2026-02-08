@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ShoppingCart } from 'lucide-react';
 import '../App.css';
 
 const Login = ({ onLogin }) => {
@@ -17,23 +18,16 @@ const Login = ({ onLogin }) => {
         try {
             const response = await fetch('http://localhost:5000/api/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
             });
 
             const data = await response.json();
-
             if (data.success) {
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.data)); // Stores user data
-
-                if (onLogin) {
-                    onLogin(data.data);
-                } else {
-                    navigate('/'); // Fallback
-                }
+                localStorage.setItem('user', JSON.stringify(data.data));
+                if (onLogin) onLogin(data.data);
+                navigate('/');
             } else {
                 setError(data.message || 'Login failed');
             }
@@ -45,45 +39,37 @@ const Login = ({ onLogin }) => {
     };
 
     return (
-        <div className="auth-container">
-            <div className="card auth-card">
-                <h2>Welcome Back</h2>
-                <p className="subtitle">Sign in to your account</p>
+        <div className="auth-page">
+            <div className="auth-box">
+                <div className="logo-container" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
+                    <img src="/logo.png" alt="Forgetti-List Logo" style={{ maxWidth: '200px', height: 'auto' }} />
+                </div>
+                <p className="text-gray mb-4">Welcome back!</p>
 
-                {error && <div className="error-message">{error}</div>}
+                {error && <div className="alert error">{error}</div>}
 
-                <form onSubmit={handleSubmit} className="auth-form">
-                    <div className="form-group">
-                        <label htmlFor="email">Email</label>
-                        <input
-                            type="email"
-                            id="email"
-                            placeholder="Enter your email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="password">Password</label>
-                        <input
-                            type="password"
-                            id="password"
-                            placeholder="Enter your password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
-                    </div>
-
-                    <button type="submit" disabled={loading} className="btn-primary">
+                <form onSubmit={handleSubmit}>
+                    <input
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                    />
+                    <input
+                        type="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
+                    <button type="submit" disabled={loading} className="btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
                 </form>
 
-                <p className="auth-footer">
-                    Don't have an account? <span onClick={() => navigate('/register')} className="link">Sign Up</span>
+                <p className="mt-4 text-gray">
+                    Don't have an account? <span onClick={() => navigate('/register')} style={{ color: '#7C3AED', cursor: 'pointer', fontWeight: 'bold' }}>Sign Up</span>
                 </p>
             </div>
         </div>

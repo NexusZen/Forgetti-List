@@ -17,6 +17,34 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* New Semantic Tokens */
+  --surface-color: #FFFFFF;
+  --surface-hover: #F9FAFB;
+  --border-color: #E5E7EB;
+  --input-bg: #F9FAFB;
+  --modal-overlay: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] {
+  --primary: #8B5CF6;
+  /* Lighter purple for dark mode */
+  --primary-light: #A78BFA;
+  --bg-color: #111827;
+  /* Dark Gray 900 */
+  --bg-card: #1F2937;
+  --accent: #F59E0B;
+  --text-dark: #F3F4F6;
+  /* Light gray text */
+  --text-light: #1F2937;
+  --surface-color: #1F2937;
+  /* Dark Gray 800 */
+  --surface-hover: #374151;
+  /* Dark Gray 700 */
+  --border-color: #374151;
+  --input-bg: #374151;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --modal-overlay: rgba(0, 0, 0, 0.8);
 }
 
 body {
@@ -25,6 +53,7 @@ body {
   color: var(--text-dark);
   margin: 0;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* App Layout Grid for Web App Feel */
@@ -44,8 +73,8 @@ body {
 /* Sidebar Styling */
 .app-header {
   grid-area: sidebar;
-  background: white;
-  border-right: 1px solid #E5E7EB;
+  background: var(--surface-color);
+  border-right: 1px solid var(--border-color);
   padding: 2rem;
   display: flex;
   flex-direction: column;
@@ -143,13 +172,13 @@ body {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  background: white;
+  background: var(--surface-color);
   padding: 0.5rem 0.5rem 0.5rem 1rem;
   border-radius: 9999px;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
 }
 
 .user-profile-pill:hover {
@@ -181,7 +210,7 @@ body {
 }
 
 .grocery-list-item {
-  background-color: white;
+  background-color: var(--surface-color);
   color: var(--text-dark);
   border-radius: 20px;
   padding: 1.5rem;
@@ -190,7 +219,7 @@ body {
   justify-content: space-between;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
   cursor: pointer;
   min-height: 160px;
   position: relative;
@@ -307,17 +336,18 @@ body {
 .input-field {
   width: 100%;
   padding: 0.8rem 1rem;
-  border: 2px solid #E5E7EB;
+  border: 2px solid var(--border-color);
   border-radius: 12px;
   font-size: 1rem;
   transition: border-color 0.2s;
-  background: #F9FAFB;
+  background: var(--input-bg);
+  color: var(--text-dark);
 }
 
 .input-field:focus {
   outline: none;
   border-color: var(--primary);
-  background: white;
+  background: var(--surface-color);
 }
 
 .builder-add-area {
@@ -350,12 +380,12 @@ body {
 
 .items-list-container {
   flex: 1;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   margin-bottom: 1rem;
   overflow: hidden;
   /* Contains the scrollbar */
-  background: #F9FAFB;
+  background: var(--input-bg);
   min-height: 200px;
 }
 
@@ -374,8 +404,8 @@ body {
   display: flex;
   align-items: center;
   padding: 0.8rem 1rem;
-  background: white;
-  border-bottom: 1px solid #F3F4F6;
+  background: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -551,7 +581,7 @@ body {
 }
 
 .game-message {
-  background-color: var(--text-dark);
+  background-color: var(--primary);
   color: white;
   padding: 0.8rem 1.5rem;
   border-radius: 8px;
@@ -587,7 +617,7 @@ body {
 }
 
 .key {
-  background-color: #E5E7EB;
+  background-color: var(--border-color);
   border: none;
   padding: 1rem 0.8rem;
   border-radius: 6px;
@@ -605,7 +635,7 @@ body {
 }
 
 .key:hover {
-  background-color: #D1D5DB;
+  filter: brightness(0.9);
 }
 
 @keyframes pop {
@@ -623,7 +653,7 @@ body {
 }
 
 .auth-box {
-  background: white;
+  background: var(--surface-color);
   padding: 4rem;
   border-radius: 32px;
   box-shadow: var(--shadow-xl);
@@ -656,7 +686,7 @@ body {
 }
 
 .modal-content {
-  background: white;
+  background: var(--surface-color);
   border-radius: 24px;
   padding: 2.5rem;
   width: 100%;
@@ -766,7 +796,7 @@ input:focus {
 
 /* Details Header Card */
 .details-header-card {
-  background: white;
+  background: var(--surface-color);
   border-radius: 20px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -804,7 +834,7 @@ input:focus {
 
 /* Items Card */
 .items-card {
-  background: white;
+  background: var(--surface-color);
   border-radius: 24px;
   padding: 1rem;
   box-shadow: var(--shadow-md);
@@ -815,7 +845,7 @@ input:focus {
   align-items: center;
   gap: 1.2rem;
   padding: 1.2rem 1.5rem;
-  border-bottom: 1px solid #F3F4F6;
+  border-bottom: 1px solid var(--border-color);
   transition: background 0.2s;
   cursor: default;
 }
@@ -825,7 +855,7 @@ input:focus {
 }
 
 .detail-item:hover {
-  background-color: #F8F9FA;
+  background-color: var(--surface-hover);
 }
 
 .item-text {
@@ -841,9 +871,9 @@ input:focus {
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-block;
-  opacity: 0.8;
-  color: transparent;
-  text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  opacity: 1;
+  color: var(--primary);
+  text-shadow: none;
   position: relative;
 }
 
@@ -862,7 +892,7 @@ input:focus {
   left: 0;
   width: 100%;
   height: 100%;
-  background: white;
+  background: var(--surface-color);
   /* Cover the original text */
   color: var(--primary);
   font-weight: bold;
@@ -956,11 +986,11 @@ input:focus {
 
 .modal-header {
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #F9FAFB;
+  background: var(--surface-color);
 }
 
 .modal-title {
@@ -995,11 +1025,11 @@ input:focus {
 .puzzle-options {
   flex: 1;
   padding: 2rem;
-  background: white;
+  background: var(--surface-color);
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  border-right: 1px solid #E5E7EB;
+  border-right: 1px solid var(--border-color);
 }
 
 .selector-subtitle {
@@ -1014,9 +1044,9 @@ input:focus {
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  border: 2px solid #E5E7EB;
+  border: 2px solid var(--border-color);
   border-radius: 12px;
-  background: white;
+  background: var(--surface-color);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
@@ -1027,7 +1057,7 @@ input:focus {
 .puzzle-option-btn:hover,
 .puzzle-option-btn.hovered {
   border-color: var(--primary);
-  background-color: #F5F3FF;
+  background-color: var(--surface-hover);
   /* Light purple tint */
   transform: translateX(5px);
   box-shadow: 0 4px 12px rgba(124, 58, 237, 0.1);
@@ -1035,7 +1065,7 @@ input:focus {
 
 .option-icon {
   font-size: 2rem;
-  background: #F3F4F6;
+  background: var(--input-bg);
   width: 50px;
   height: 50px;
   display: flex;
@@ -1046,7 +1076,7 @@ input:focus {
 }
 
 .puzzle-option-btn:hover .option-icon {
-  background: white;
+  background: var(--surface-color);
 }
 
 .option-info {
@@ -1084,12 +1114,12 @@ input:focus {
 .puzzle-option-btn.disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  background: #F9FAFB;
+  background: var(--input-bg);
 }
 
 .puzzle-option-btn.disabled:hover {
-  border-color: #E5E7EB;
-  background-color: #F9FAFB;
+  border-color: var(--border-color);
+  background-color: var(--input-bg);
   transform: none;
   box-shadow: none;
 }
@@ -1097,7 +1127,7 @@ input:focus {
 /* Right Column: Preview */
 .puzzle-preview-area {
   width: 350px;
-  background: #F3F4F6;
+  background: var(--input-bg);
   position: relative;
   display: flex;
   align-items: center;
@@ -1211,10 +1241,10 @@ input:focus {
   /* Tight gap */
   margin: 2rem 0;
   user-select: none;
-  background: white;
+  background: var(--surface-color);
   padding: 1rem;
   border-radius: 12px;
-  box-shadow: inset 0 0 0 2px #E5E7EB;
+  box-shadow: inset 0 0 0 2px var(--border-color);
 }
 
 .grid-row {
@@ -1238,13 +1268,13 @@ input:focus {
   color: var(--text-dark);
   border-radius: 6px;
   cursor: pointer;
-  background-color: #F3F4F6;
+  background-color: var(--input-bg);
   transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   border: 1px solid transparent;
 }
 
 .grid-cell:hover {
-  background-color: #E5E7EB;
+  background-color: var(--surface-hover);
   transform: scale(1.15);
   z-index: 10;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -1274,7 +1304,7 @@ input:focus {
 
 /* Score/Completion Modal */
 .score-modal-content {
-  background: white;
+  background: var(--surface-color);
   padding: 3rem;
   /* Spacious padding */
   border-radius: 32px;
@@ -1380,7 +1410,7 @@ input:focus {
 }
 
 .btn-close-score {
-  background-color: var(--text-dark);
+  background-color: var(--primary);
   color: white;
   border: none;
   padding: 1rem 2rem;
@@ -1395,4 +1425,31 @@ input:focus {
 .btn-close-score:hover {
   transform: scale(1.02);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Button Styles */
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 0.8rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.1);
+}
+
+.btn-primary:disabled {
+  background-color: #9CA3AF;
+  cursor: not-allowed;
+  transform: none;
 }

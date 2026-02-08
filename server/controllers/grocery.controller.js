@@ -5,7 +5,9 @@ const GroceryList = require('../models/GroceryList');
 // @access  Private
 exports.getGroceryLists = async (req, res) => {
     try {
-        const lists = await GroceryList.find({ user: req.user.id }).sort({ createdAt: -1 });
+        const lists = await GroceryList.find({ user: req.user.id })
+            .sort({ createdAt: -1 })
+            .populate('items.puzzle');
 
         res.status(200).json({
             success: true,
@@ -66,9 +68,12 @@ exports.createGroceryList = async (req, res) => {
         list.items = itemsWithPuzzles;
         await list.save();
 
+        // Populate the list before sending response
+        const populatedList = await GroceryList.findById(list._id).populate('items.puzzle');
+
         res.status(201).json({
             success: true,
-            data: list
+            data: populatedList
         });
     } catch (err) {
         console.error(err);

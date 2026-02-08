@@ -21,13 +21,16 @@ exports.protect = async (req, res, next) => {
             req.user = await User.findById(decoded.id);
 
             next();
+            return; // Explicit return
         } catch (err) {
-            console.error(err);
+            console.error('Auth error:', err);
             res.status(401).json({ success: false, message: 'Not authorized, token failed' });
+            return; // Explicit return
         }
     }
 
     if (!token) {
         res.status(401).json({ success: false, message: 'Not authorized, no token' });
+        return; // Explicit return
     }
 };

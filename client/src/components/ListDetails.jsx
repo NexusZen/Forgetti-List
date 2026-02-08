@@ -34,7 +34,14 @@ const ListDetails = ({ list, onBack }) => {
                             <div className="custom-checkbox">
                                 <div className="checkmark"></div>
                             </div>
-                            <span className="item-text">{item}</span>
+                            <span
+                                className="item-text blurred-text"
+                                data-hover={
+                                    ["Take a guess XD", "Forgot already?", "Who knows?", "Maybe it's pizza?", "Good luck!", "It's a mystery..."][Math.floor(Math.random() * 6)]
+                                }
+                            >
+                                {typeof item === 'object' && item !== null ? item.name || "Legacy Item" : item}
+                            </span>
                         </div>
                     ))
                 ) : (

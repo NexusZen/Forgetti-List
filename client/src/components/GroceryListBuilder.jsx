@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Plus, Trash2, Save } from 'lucide-react';
 
 const GroceryListBuilder = ({ onListCreated }) => {
     const [listName, setListName] = useState('My Grocery List');
@@ -7,8 +8,16 @@ const GroceryListBuilder = ({ onListCreated }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
+    const listEndRef = useRef(null);
 
     const MAX_ITEMS = 50;
+
+    // Scroll to bottom when items added
+    useEffect(() => {
+        if (listEndRef.current) {
+            listEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [items]);
 
     const handleAddItem = (e) => {
         e.preventDefault();
@@ -57,7 +66,9 @@ const GroceryListBuilder = ({ onListCreated }) => {
                 setSuccess('List saved successfully!');
                 setItems([]);
                 setListName('My Grocery List');
-                if (onListCreated) onListCreated(); // Callback to refresh parent list if needed
+                setTimeout(() => {
+                    if (onListCreated) onListCreated();
+                }, 1000);
             } else {
                 setError(data.message || 'Failed to save list');
             }
@@ -69,64 +80,78 @@ const GroceryListBuilder = ({ onListCreated }) => {
     };
 
     return (
-        <div className="card grocery-builder">
-            <h3>Create New List</h3>
+        <div className="grocery-builder-container">
+            <h3 className="builder-title">Create New List</h3>
 
-            {error && <div className="alert error">{error}</div>}
-            {success && <div className="alert success">{success}</div>}
+            {error && <div className="alert error-alert">{error}</div>}
+            {success && <div className="alert success-alert">{success}</div>}
 
-            <div className="form-group">
-                <label>List Name</label>
-                <input
-                    type="text"
-                    value={listName}
-                    onChange={(e) => setListName(e.target.value)}
-                    placeholder="e.g., Weekly Groceries"
-                />
+            <div className="builder-header">
+                <div className="form-group">
+                    <label>List Name</label>
+                    <input
+                        type="text"
+                        value={listName}
+                        onChange={(e) => setListName(e.target.value)}
+                        placeholder="e.g., Weekly Groceries"
+                        className="input-field"
+                    />
+                </div>
             </div>
 
-            <div className="item-input-group">
+            <div className="builder-add-area">
                 <input
                     type="text"
                     value={currentItem}
                     onChange={(e) => setCurrentItem(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddItem(e)}
                     placeholder="Add an item (e.g., Milk)"
-                    className="item-input"
+                    className="input-field item-input"
                 />
                 <button
                     onClick={handleAddItem}
-                    className="btn-add"
+                    className="btn-add-item"
                     disabled={items.length >= MAX_ITEMS}
                 >
-                    Add
+                    <Plus size={20} />
                 </button>
             </div>
 
-            <div className="list-status">
-                <span className={items.length >= MAX_ITEMS ? 'limit-reached' : ''}>
-                    Items: {items.length} / {MAX_ITEMS}
-                </span>
+            <div className="items-list-container">
+                {items.length === 0 ? (
+                    <div className="empty-list-placeholder">
+                        <p>No items added yet. Start adding!</p>
+                    </div>
+                ) : (
+                    <ul className="items-list-scroll">
+                        {items.map((item, index) => (
+                            <li key={index} className="builder-item-row">
+                                <span className="item-number">{index + 1}.</span>
+                                <span className="item-content">{item}</span>
+                                <button onClick={() => handleRemoveItem(index)} className="btn-remove-item">
+                                    <Trash2 size={16} />
+                                </button>
+                            </li>
+                        ))}
+                        <div ref={listEndRef} />
+                    </ul>
+                )}
             </div>
 
-            <ul className="items-preview">
-                {items.map((item, index) => (
-                    <li key={index} className="item-tag">
-                        {item}
-                        <button onClick={() => handleRemoveItem(index)} className="btn-remove">×</button>
-                    </li>
-                ))}
-            </ul>
+            <div className="builder-footer">
+                <span className={`item-count ${items.length >= MAX_ITEMS ? 'limit-reached' : ''}`}>
+                    {items.length} / {MAX_ITEMS} Items
+                </span>
 
-            {items.length > 0 && (
                 <button
                     onClick={handleSubmitList}
-                    className="btn-primary btn-save"
-                    disabled={loading}
+                    className="btn-primary btn-save-list"
+                    disabled={loading || items.length === 0}
                 >
+                    <Save size={18} style={{ marginRight: '8px' }} />
                     {loading ? 'Saving...' : 'Save List'}
                 </button>
-            )}
+            </div>
         </div>
     );
 };

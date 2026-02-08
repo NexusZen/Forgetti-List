@@ -21,6 +21,12 @@ exports.getGroceryLists = async (req, res) => {
 // @desc    Create a new grocery list
 // @route   POST /api/grocery
 // @access  Private
+const Puzzle = require('../models/Puzzle');
+const { assignPuzzleType, generatePuzzleData } = require('../utils/puzzleGenerator');
+
+// @desc    Create a new grocery list
+// @route   POST /api/grocery
+// @access  Private
 exports.createGroceryList = async (req, res) => {
     try {
         const { name, items } = req.body;
@@ -30,11 +36,35 @@ exports.createGroceryList = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Please provide an array of items' });
         }
 
-        const list = await GroceryList.create({
+        // Create the list first to get an ID (items will be populated after puzzle creation)
+        const list = new GroceryList({
             user: req.user.id,
-            name: name || 'My Grocery List', // Use provided name or default
-            items: items
+            name: name || 'My Grocery List',
+            items: []
         });
+
+        const puzzlePromises = items.map(async (itemName) => {
+            const type = assignPuzzleType();
+            const puzzleData = generatePuzzleData(itemName, type);
+
+            const puzzle = await Puzzle.create({
+                user: req.user.id,
+                groceryList: list._id,
+                groceryItemName: itemName,
+                type: type,
+                data: puzzleData
+            });
+
+            return {
+                name: itemName,
+                puzzle: puzzle._id
+            };
+        });
+
+        const itemsWithPuzzles = await Promise.all(puzzlePromises);
+
+        list.items = itemsWithPuzzles;
+        await list.save();
 
         res.status(201).json({
             success: true,

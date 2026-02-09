@@ -7,7 +7,12 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
     const puzzleId = typeof puzzle === 'string' ? puzzle : puzzle._id;
 
     // Initialize state conservatively
-    const [guesses, setGuesses] = useState(typeof puzzle === 'object' ? (puzzle.data?.guesses || []) : []);
+    const [guesses, setGuesses] = useState(() => {
+        if (typeof puzzle === 'object' && puzzle?.data?.guesses && Array.isArray(puzzle.data.guesses)) {
+            return puzzle.data.guesses;
+        }
+        return [];
+    });
     const [feedback, setFeedback] = useState([]);
     const [gameState, setGameState] = useState(typeof puzzle === 'object' ? puzzle.status : 'loading');
     const [message, setMessage] = useState('');

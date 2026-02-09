@@ -3,7 +3,7 @@ import { ArrowLeft, Calendar, Layout, Info, X } from 'lucide-react';
 import WordleGame from './WordleGame';
 import WordSearchGame from './WordSearchGame';
 
-const ListDetails = ({ list, onBack, onUpdatePoints }) => {
+const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
     // Local state to track item statuses immediately
     const [localList, setLocalList] = useState(list);
 
@@ -108,6 +108,23 @@ const ListDetails = ({ list, onBack, onUpdatePoints }) => {
                 setShowScoreModal(true);
             }, 500); // Small delay for effect
         }
+    };
+
+    const handleGameClose = async () => {
+        // If user closes, mark as failed automatically
+        if (selectedPuzzleItem?.puzzle?._id) {
+            try {
+                // Determine API URL based on environment or hardcode for now
+                const baseUrl = 'http://127.0.0.1:5000';
+                await fetch(`${baseUrl}/api/puzzle/${selectedPuzzleItem.puzzle._id}/fail`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+            } catch (err) {
+                console.error("Error failing puzzle:", err);
+            }
+        }
+        handleGameComplete(false);
     };
 
     // Gauge Component Helper
@@ -256,13 +273,13 @@ const ListDetails = ({ list, onBack, onUpdatePoints }) => {
 
                             <div className="puzzle-preview-area">
                                 <div className={`preview-card ${hoveredGame === 'wordle' ? 'active' : ''}`}>
-                                    <img src="/wordle_preview.png" alt="Wordle Preview" className="preview-image" />
+                                    <img src={theme === 'dark' ? "/wordle_preview_dark.png" : "/wordle_preview.png"} alt="Wordle Preview" className="preview-image" />
                                     <div className="preview-overlay">
                                         <span>Wordle Gameplay</span>
                                     </div>
                                 </div>
                                 <div className={`preview-card ${hoveredGame === 'word_grid' ? 'active' : ''}`}>
-                                    <img src="/grid.png" alt="Word Grid Preview" className="preview-image" />
+                                    <img src={theme === 'dark' ? "/grid_dark.png" : "/grid.png"} alt="Word Grid Preview" className="preview-image" />
                                     <div className="preview-overlay">
                                         <span>Word Grid Gameplay</span>
                                     </div>
@@ -286,7 +303,7 @@ const ListDetails = ({ list, onBack, onUpdatePoints }) => {
                         <WordleGame
                             puzzle={selectedPuzzleItem.puzzle}
                             onComplete={handleGameComplete}
-                            onClose={() => setActiveGame(null)}
+                            onClose={handleGameClose}
                         />
                     </div>
                 </div>
@@ -298,7 +315,7 @@ const ListDetails = ({ list, onBack, onUpdatePoints }) => {
                         <WordSearchGame
                             puzzle={selectedPuzzleItem.puzzle}
                             onComplete={handleGameComplete}
-                            onClose={() => setActiveGame(null)}
+                            onClose={handleGameClose}
                         />
                     </div>
                 </div>

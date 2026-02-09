@@ -253,3 +253,30 @@ exports.updatePuzzleType = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+// @desc    Give up and fail a puzzle
+// @route   POST /api/puzzle/:id/fail
+// @access  Private
+exports.failPuzzle = async (req, res) => {
+    try {
+        const puzzle = await Puzzle.findById(req.params.id);
+
+        if (!puzzle) {
+            return res.status(404).json({ success: false, message: 'Puzzle not found' });
+        }
+
+        // If already solved, don't fail it
+        if (puzzle.status === 'solved') {
+            return res.status(400).json({ success: false, message: 'Puzzle already solved' });
+        }
+
+        // Mark as failed
+        puzzle.status = 'failed';
+        await puzzle.save();
+
+        res.status(200).json({ success: true, data: puzzle });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};

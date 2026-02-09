@@ -13,5 +13,6 @@ router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/grocery', groceryRoutes);
 router.use('/puzzle', puzzleRoutes);
+router.use('/leaderboard', require('./leaderboard.routes'));
 
 module.exports = router;

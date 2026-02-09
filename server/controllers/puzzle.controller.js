@@ -1,5 +1,6 @@
 const Puzzle = require('../models/Puzzle');
 const GroceryList = require('../models/GroceryList');
+const Leaderboard = require('../models/Leaderboard');
 
 // Simple dictionary check (placeholder - could be expanded)
 const isValidWord = (word) => {
@@ -172,6 +173,19 @@ exports.verifyGuess = async (req, res) => {
                     // Increment user points
                     req.user.points = (req.user.points || 0) + 1;
                     await req.user.save();
+
+                    // Update Leaderboard
+                    await Leaderboard.findOneAndUpdate(
+                        { user: req.user._id },
+                        {
+                            $set: {
+                                username: req.user.username,
+                                totalPoints: req.user.points,
+                                lastUpdated: Date.now()
+                            }
+                        },
+                        { upsert: true, new: true }
+                    );
 
                     pointsReceived = true;
                     newTotalPoints = req.user.points;

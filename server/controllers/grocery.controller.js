@@ -38,7 +38,7 @@ exports.createGroceryList = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Please provide an array of items' });
         }
 
-        // Create the list first to get an ID (items will be populated after puzzle creation)
+        // Create the list first to get an ID 
         const list = new GroceryList({
             user: req.user.id,
             name: name || 'My Grocery List',

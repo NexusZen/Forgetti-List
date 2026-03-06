@@ -5,9 +5,7 @@ const generatePuzzleData = (itemName, type) => {
     const target = normalize(itemName);
 
     if (type === 'jumble') {
-        // Simple shuffle
         const shuffled = target.split('').sort(() => 0.5 - Math.random()).join('');
-        // Ensure it's not the same as original (simple check, recursive if needed but kept simple here)
         return {
             scrambledWord: shuffled === target ? target.split('').reverse().join('') : shuffled
         };

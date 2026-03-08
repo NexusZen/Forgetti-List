@@ -94,7 +94,7 @@ const WordSearchGame = ({ puzzle, onComplete, onClose }) => {
             const data = await res.json();
 
             setTimeout(() => {
-                onComplete(true, data.newTotalPoints);
+                onComplete(true, data.newTotalPoints, data.pointsReceived);
             }, 1500);
         } catch (err) {
             console.error(err);
@@ -105,7 +105,7 @@ const WordSearchGame = ({ puzzle, onComplete, onClose }) => {
         setGameState('failed');
 
         try {
-            await fetch(`http://127.0.0.1:5000/api/puzzle/${puzzle._id}/verify`, {
+            const res = await fetch(`http://127.0.0.1:5000/api/puzzle/${puzzle._id}/verify`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -113,9 +113,10 @@ const WordSearchGame = ({ puzzle, onComplete, onClose }) => {
                 },
                 body: JSON.stringify({ status: 'failed' })
             });
+            const data = await res.json();
 
             setTimeout(() => {
-                onComplete(false);
+                onComplete(false, data.newTotalPoints, data.pointsReceived);
             }, 2000);
         } catch (err) {
             console.error(err);

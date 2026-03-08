@@ -17,7 +17,7 @@ const PuzzleSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['wordle', 'jumble', 'word_grid'],
+        enum: ['wordle', 'jumble', 'word_grid', 'hangman'],
         required: true
     },
     status: {
@@ -35,14 +35,16 @@ const PuzzleSchema = new mongoose.Schema({
     },
     // Store puzzle-specific data
     data: {
-        scrambledWord: String, // For jumble
-        guesses: [String],     // For wordle
-        grid: [[String]],      // For word_grid (2D array of chars)
-        solution: [{           // For word_grid (path)
+        scrambledWord: String,      // For jumble
+        guesses: [String],          // For wordle
+        grid: [[String]],           // For word_grid (2D array of chars)
+        solution: [{                // For word_grid (path)
             row: Number,
             col: Number,
             char: String
-        }]
+        }],
+        guessedLetters: [String],   // For hangman
+        wrongGuesses: { type: Number, default: 0 } // For hangman
     },
     createdAt: {
         type: Date,

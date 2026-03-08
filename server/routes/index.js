@@ -14,5 +14,6 @@ router.use('/auth', authRoutes);
 router.use('/grocery', groceryRoutes);
 router.use('/puzzle', puzzleRoutes);
 router.use('/leaderboard', require('./leaderboard.routes'));
+router.use('/upload', require('./upload.routes'));
 
 module.exports = router;

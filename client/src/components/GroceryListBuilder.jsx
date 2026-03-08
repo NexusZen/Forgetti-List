@@ -1,23 +1,77 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { Plus, Trash2, Save, ImagePlus, X, Loader } from 'lucide-react';
 
 const GroceryListBuilder = ({ onListCreated }) => {
     const [listName, setListName] = useState('My Grocery List');
-    const [items, setItems] = useState([]);
+    const [items, setItems] = useState([]); // each: { name, imageUrl, imagePreview }
     const [currentItem, setCurrentItem] = useState('');
+    const [pendingImageUrl, setPendingImageUrl] = useState(null);   // Cloudinary URL
+    const [pendingPreview, setPendingPreview] = useState(null);     // Local blob preview
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
+
     const listEndRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const MAX_ITEMS = 50;
 
-    // Scroll to bottom when items added
     useEffect(() => {
         if (listEndRef.current) {
             listEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [items]);
+
+    const handleImageSelect = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            setError('Image must be under 5MB.');
+            return;
+        }
+
+        // Show local preview immediately
+        const preview = URL.createObjectURL(file);
+        setPendingPreview(preview);
+        setUploadingImage(true);
+        setError('');
+
+        try {
+            const token = localStorage.getItem('token');
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await fetch('http://localhost:5000/api/upload', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                setPendingImageUrl(data.url);
+            } else {
+                setError(data.message || 'Image upload failed.');
+                setPendingPreview(null);
+                setPendingImageUrl(null);
+            }
+        } catch (err) {
+            setError('Could not upload image. Server might be down.');
+            setPendingPreview(null);
+            setPendingImageUrl(null);
+        } finally {
+            setUploadingImage(false);
+            // Reset file input so same file can be re-selected
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const clearPendingImage = () => {
+        setPendingImageUrl(null);
+        setPendingPreview(null);
+    };
 
     const handleAddItem = (e) => {
         e.preventDefault();
@@ -28,8 +82,14 @@ const GroceryListBuilder = ({ onListCreated }) => {
             return;
         }
 
-        setItems([...items, currentItem.trim()]);
+        setItems([...items, {
+            name: currentItem.trim(),
+            imageUrl: pendingImageUrl || null,
+            imagePreview: pendingPreview || null
+        }]);
         setCurrentItem('');
+        setPendingImageUrl(null);
+        setPendingPreview(null);
         setError('');
     };
 
@@ -51,13 +111,16 @@ const GroceryListBuilder = ({ onListCreated }) => {
 
         try {
             const token = localStorage.getItem('token');
+            // Send items as objects so imageUrl is preserved
+            const itemsPayload = items.map(({ name, imageUrl }) => ({ name, imageUrl }));
+
             const response = await fetch('http://localhost:5000/api/grocery', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ name: listName, items })
+                body: JSON.stringify({ name: listName, items: itemsPayload })
             });
 
             const data = await response.json();
@@ -99,7 +162,47 @@ const GroceryListBuilder = ({ onListCreated }) => {
                 </div>
             </div>
 
+            {/* Item input row */}
             <div className="builder-add-area">
+                {/* Hidden file input */}
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleImageSelect}
+                />
+
+                {/* Image preview / upload button */}
+                <div className="builder-img-slot" title="Add image for this item">
+                    {uploadingImage ? (
+                        <div className="builder-img-placeholder uploading">
+                            <Loader size={18} className="spin-icon" />
+                        </div>
+                    ) : pendingPreview ? (
+                        <div className="builder-img-preview-wrap">
+                            <img src={pendingPreview} alt="preview" className="builder-img-preview" />
+                            <button
+                                className="builder-img-clear"
+                                onClick={clearPendingImage}
+                                type="button"
+                                title="Remove image"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            className="builder-img-placeholder"
+                            onClick={() => fileInputRef.current?.click()}
+                            type="button"
+                            title="Add image"
+                        >
+                            <ImagePlus size={18} />
+                        </button>
+                    )}
+                </div>
+
                 <input
                     type="text"
                     value={currentItem}
@@ -117,6 +220,7 @@ const GroceryListBuilder = ({ onListCreated }) => {
                 </button>
             </div>
 
+            {/* Items list */}
             <div className="items-list-container">
                 {items.length === 0 ? (
                     <div className="empty-list-placeholder">
@@ -126,8 +230,18 @@ const GroceryListBuilder = ({ onListCreated }) => {
                     <ul className="items-list-scroll">
                         {items.map((item, index) => (
                             <li key={index} className="builder-item-row">
+                                {/* Thumbnail circle */}
+                                <div className="builder-item-thumb">
+                                    {item.imagePreview ? (
+                                        <img src={item.imagePreview} alt={item.name} className="builder-thumb-img" />
+                                    ) : (
+                                        <div className="builder-thumb-placeholder">
+                                            <ImagePlus size={14} color="#9CA3AF" />
+                                        </div>
+                                    )}
+                                </div>
                                 <span className="item-number">{index + 1}.</span>
-                                <span className="item-content">{item}</span>
+                                <span className="item-content">{item.name}</span>
                                 <button onClick={() => handleRemoveItem(index)} className="btn-remove-item">
                                     <Trash2 size={16} />
                                 </button>

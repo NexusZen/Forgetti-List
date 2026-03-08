@@ -24,6 +24,17 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
   const [listToDelete, setListToDelete] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [exitingIds, setExitingIds] = useState([]);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (cooldown > 0) {
+      timer = setInterval(() => {
+        setCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const randomWelcome = useMemo(() => {
     const messages = [
@@ -118,6 +129,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
     setShowBuilder(false);
     fetchLists(); // Refresh lists
     setActiveTab('Lists');
+    setCooldown(30); // 30-second cooldown added here
   };
 
   return (
@@ -220,14 +232,30 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
               }}>
                 {randomWelcome}
               </p>
-              <h2 style={{ fontSize: '2rem', margin: 0, fontWeight: 700, color: 'var(--text-dark)' }}>My Grocery Lists</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <h2 style={{ fontSize: '2rem', margin: 0, fontWeight: 700, color: 'var(--text-dark)' }}>My Grocery Lists</h2>
+                {cooldown > 0 && (
+                  <span style={{ 
+                    background: '#EF4444', color: 'white', padding: '0.4rem 1rem', 
+                    borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem',
+                    boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)'
+                  }}>
+                    Brain Cooldown: {cooldown}s
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="lists-box">
               {loadingLists ? (
                 <p className="text-center text-gray">Loading lists...</p>
               ) : lists.length > 0 ? (
-                <div className="lists-grid">
+                <div className="lists-grid" style={{ 
+                  opacity: cooldown > 0 ? 0.4 : 1, 
+                  filter: cooldown > 0 ? 'grayscale(100%)' : 'none',
+                  pointerEvents: cooldown > 0 ? 'none' : 'auto',
+                  transition: 'all 0.3s ease'
+                }}>
                   {lists.map(list => {
                     // Calculate Status
                     let total = 0;
@@ -314,7 +342,21 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
               )}
 
               <div style={{ position: 'absolute', bottom: '2rem', right: '2rem', zIndex: 10 }}>
-                <button className="fab" onClick={() => setShowBuilder(true)}>
+                <button 
+                  className="fab" 
+                  onClick={() => {
+                    if (cooldown > 0) {
+                      alert(`Whoa there speedy! You just created a list.\nAre you trying to crash the shopping cart? Give your brain ${cooldown} more seconds to cool down!`);
+                      return;
+                    }
+                    setShowBuilder(true);
+                  }}
+                  style={{
+                    background: cooldown > 0 ? '#9CA3AF' : '',
+                    cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+                    transform: cooldown > 0 ? 'none' : ''
+                  }}
+                >
                   <Plus size={32} strokeWidth={3} />
                 </button>
               </div>

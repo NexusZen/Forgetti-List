@@ -45,7 +45,11 @@ exports.createGroceryList = async (req, res) => {
             items: []
         });
 
-        const puzzlePromises = items.map(async (itemName) => {
+        const puzzlePromises = items.map(async (item) => {
+            // Items can be plain strings (legacy) or objects { name, imageUrl }
+            const itemName = typeof item === 'string' ? item : item.name;
+            const imageUrl = typeof item === 'object' ? (item.imageUrl || null) : null;
+
             const type = assignPuzzleType();
             const puzzleData = generatePuzzleData(itemName, type);
 
@@ -59,6 +63,7 @@ exports.createGroceryList = async (req, res) => {
 
             return {
                 name: itemName,
+                imageUrl,
                 puzzle: puzzle._id
             };
         });

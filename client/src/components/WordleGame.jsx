@@ -190,11 +190,11 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
                     setGameState(data.status);
                     if (data.status === 'solved') {
                         setMessage('You got it!');
-                        setTimeout(() => onComplete(true, data.newTotalPoints), 1500);
+                        setTimeout(() => onComplete(true, data.newTotalPoints, data.pointsReceived), 1500);
                     } else {
                         setMessage(`Game Over! The word was ${data.solution}`);
                         setSolution(data.solution);
-                        setTimeout(() => onComplete(false), 2000);
+                        setTimeout(() => onComplete(false, data.newTotalPoints, data.pointsReceived), 2000);
                     }
                 }
             } else {

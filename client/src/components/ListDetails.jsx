@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Calendar, Layout, Info, X } from 'lucide-react';
 import WordleGame from './WordleGame';
 import WordSearchGame from './WordSearchGame';
+import HangmanGame from './HangmanGame';
 
 const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
     // Local state to track item statuses immediately
@@ -48,7 +49,7 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
         setActiveGame(type);
     };
 
-    const handleGameComplete = (success, newPoints) => {
+    const handleGameComplete = (success, newPoints, pointsEarned = false) => {
         // Close game modal
         setActiveGame(null);
 
@@ -56,9 +57,7 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
         const updatedStatus = success ? 'solved' : 'failed';
 
         const updatedItems = localList.items.map(item => {
-            // Match against selectedPuzzleItem (assuming reference or _id match)
             if (item === selectedPuzzleItem || (item._id && item._id === selectedPuzzleItem._id)) {
-                // Return new object with updated status
                 return {
                     ...item,
                     puzzle: { ...item.puzzle, status: updatedStatus }
@@ -72,15 +71,15 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
         setSelectedPuzzleItem(null);
 
         // Check for List Completion
-        checkCompletion(updatedItems);
+        checkCompletion(updatedItems, pointsEarned);
 
         // Update Points if backend returned them
-        if (newPoints !== undefined && onUpdatePoints) {
+        if (newPoints !== undefined && newPoints !== null && onUpdatePoints) {
             onUpdatePoints(newPoints);
         }
     };
 
-    const checkCompletion = (items) => {
+    const checkCompletion = (items, pointsEarned) => {
         const total = items.length;
         let solved = 0;
         let failed = 0;
@@ -92,18 +91,11 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
             }
         });
 
-        // Consider 'legacy' string items as ignored or handle them?
-        // Assuming all items are objects for this feature.
-
-        // If all items are processed (no pending)
-        // Adjust logic: items without puzzles might exist?
-        // For now, assume if solved + failed == total valid puzzle items.
-
         const validItems = items.filter(i => typeof i === 'object' && i.puzzle);
         const processed = solved + failed;
 
         if (validItems.length > 0 && processed === validItems.length) {
-            setScoreStats({ total: validItems.length, solved, failed });
+            setScoreStats({ total: validItems.length, solved, failed, pointsEarned });
             setTimeout(() => {
                 setShowScoreModal(true);
             }, 500); // Small delay for effect
@@ -201,9 +193,18 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
                         const isSolved = status === 'solved';
                         const isFailed = status === 'failed';
                         const isRevealed = isSolved || isFailed;
+                        const hasImage = isObject && item.imageUrl;
 
                         return (
                             <div key={index} className="detail-item" onClick={() => !isRevealed && handleItemClick(item)}>
+                                {/* Item image circle: blurred placeholder when pending, real image when solved */}
+                                <div className={`item-image-circle ${hasImage ? (isRevealed ? 'img-revealed' : 'img-hidden') : 'img-none'}`}>
+                                    {hasImage && isRevealed ? (
+                                        <img src={item.imageUrl} alt={name} className="item-circle-img" />
+                                    ) : (
+                                        <span className="item-circle-placeholder">{hasImage ? '🔒' : '📷'}</span>
+                                    )}
+                                </div>
                                 <div className="custom-checkbox">
                                     <div className={`checkmark ${isSolved ? 'checked' : ''}`}></div>
                                 </div>
@@ -269,6 +270,20 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
                                     </div>
                                     <div className="option-arrow">→</div>
                                 </button>
+
+                                <button
+                                    className={`puzzle-option-btn ${hoveredGame === 'hangman' ? 'hovered' : ''}`}
+                                    onMouseEnter={() => setHoveredGame('hangman')}
+                                    onMouseLeave={() => setHoveredGame(null)}
+                                    onClick={() => startPuzzle('hangman')}
+                                >
+                                    <div className="option-icon">🪢</div>
+                                    <div className="option-info">
+                                        <span className="option-title">Hangman</span>
+                                        <span className="option-desc">Guess letters before he drops</span>
+                                    </div>
+                                    <div className="option-arrow">→</div>
+                                </button>
                             </div>
 
                             <div className="puzzle-preview-area">
@@ -284,6 +299,24 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
                                         <span>Word Grid Gameplay</span>
                                     </div>
                                 </div>
+                                <div className={`preview-card hangman-preview-card ${hoveredGame === 'hangman' ? 'active' : ''}`}>
+                                    <div className="hangman-preview-content">
+                                        <svg viewBox="0 0 200 190" style={{ width: '130px', color: 'var(--primary)' }}>
+                                            <line x1="20" y1="180" x2="180" y2="180" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                                            <line x1="60" y1="180" x2="60" y2="20" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                                            <line x1="60" y1="20" x2="140" y2="20" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                                            <line x1="140" y1="20" x2="140" y2="42" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                                            <circle cx="140" cy="60" r="18" stroke="currentColor" strokeWidth="4" fill="none" />
+                                            <line x1="140" y1="78" x2="140" y2="130" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                                            <line x1="140" y1="95" x2="110" y2="118" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                                        </svg>
+                                        <p style={{ color: 'var(--text-dark)', fontWeight: 600, margin: '0.5rem 0 0' }}>Hangman</p>
+                                        <p style={{ color: '#6B7280', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>Guess letters before he drops!</p>
+                                    </div>
+                                    <div className="preview-overlay">
+                                        <span>Hangman Gameplay</span>
+                                    </div>
+                                </div>
                                 <div className={`preview-placeholder ${!hoveredGame ? 'active' : ''}`}>
                                     <div className="placeholder-content">
                                         <Info size={48} className="placeholder-icon" />
@@ -297,6 +330,18 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
             )}
 
             {/* Game Modal */}
+            {activeGame === 'hangman' && selectedPuzzleItem && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '700px', padding: '1rem' }}>
+                        <HangmanGame
+                            puzzle={selectedPuzzleItem.puzzle}
+                            onComplete={handleGameComplete}
+                            onClose={handleGameClose}
+                        />
+                    </div>
+                </div>
+            )}
+
             {activeGame === 'wordle' && selectedPuzzleItem && (
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '500px', padding: '1rem' }}>
@@ -347,6 +392,15 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
                                 <span className="stat-label">Failed</span>
                             </div>
                         </div>
+
+                        {scoreStats.pointsEarned && scoreStats.pointsEarned > 0 && (
+                            <div style={{ marginTop: '1rem', background: '#F3E8FF', padding: '0.8rem', borderRadius: '12px', border: '1px solid #D8B4FE' }}>
+                                <h3 style={{ margin: 0, color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '1.25rem' }}>
+                                    ✨ +{scoreStats.pointsEarned} Points! ✨
+                                </h3>
+                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: '#6B7280' }}>Based on your performance formula</p>
+                            </div>
+                        )}
 
                         <button className="btn-close-score" onClick={onBack}>
                             Return to Dashboard

@@ -92,6 +92,53 @@ exports.verifyGuess = async (req, res) => {
                 return res.status(400).json({ success: false, message: 'Invalid status for Word Grid' });
             }
         }
+        // --- HANGMAN LOGIC ---
+        else if (puzzle.type === 'hangman') {
+            const letterGuess = guess ? guess.trim().toUpperCase() : '';
+
+            if (letterGuess.length !== 1 || !/^[A-Z]$/.test(letterGuess)) {
+                return res.status(400).json({ success: false, message: 'Please guess a single letter' });
+            }
+
+            if (!puzzle.data) puzzle.data = {};
+            if (!puzzle.data.guessedLetters) puzzle.data.guessedLetters = [];
+            if (puzzle.data.wrongGuesses === undefined) puzzle.data.wrongGuesses = 0;
+
+            // Check if already guessed
+            if (puzzle.data.guessedLetters.includes(letterGuess)) {
+                return res.status(400).json({ success: false, message: 'You already guessed that letter!' });
+            }
+
+            puzzle.data.guessedLetters.push(letterGuess);
+
+            const cleanTarget = targetWord.replace(/[^A-Z]/g, '');
+            const isCorrectGuess = cleanTarget.includes(letterGuess);
+
+            if (!isCorrectGuess) {
+                puzzle.data.wrongGuesses += 1;
+            }
+
+            // Check win: all letters in the word have been guessed
+            const uniqueTargetLetters = [...new Set(cleanTarget.split(''))];
+            const allGuessed = uniqueTargetLetters.every(l => puzzle.data.guessedLetters.includes(l));
+
+            if (allGuessed) {
+                puzzle.status = 'solved';
+            } else if (puzzle.data.wrongGuesses >= puzzle.maxAttempts) {
+                puzzle.status = 'failed';
+            }
+
+            result = {
+                letterGuess,
+                isCorrect: isCorrectGuess,
+                guessedLetters: puzzle.data.guessedLetters,
+                wrongGuesses: puzzle.data.wrongGuesses,
+                maxAttempts: puzzle.maxAttempts
+            };
+
+            // Mark dirty for Mongoose mixed type
+            puzzle.markModified('data');
+        }
         // --- WORDLE LOGIC ---
         else {
             if (puzzle.attempts >= puzzle.maxAttempts) {
@@ -155,23 +202,36 @@ exports.verifyGuess = async (req, res) => {
         let pointsReceived = false;
         let newTotalPoints = req.user.points || 0;
 
-        // Check if this solved puzzle completes a list
-        if (puzzle.status === 'solved') {
+        // Check if this solved or failed puzzle finishes a list
+        if (puzzle.status === 'solved' || puzzle.status === 'failed') {
             const list = await GroceryList.findOne({
                 'items.puzzle': puzzle._id
             }).populate('items.puzzle');
 
             if (list) {
-                const allSolved = list.items.every(item =>
-                    item.puzzle && item.puzzle.status === 'solved'
+                const isFinished = list.items.every(item =>
+                    item.puzzle && (item.puzzle.status === 'solved' || item.puzzle.status === 'failed')
                 );
 
-                if (allSolved && !list.pointsAwarded) {
+                if (isFinished && !list.pointsAwarded) {
                     list.pointsAwarded = true;
                     await list.save();
 
+                    const totalItems = list.items.length;
+                    const solvedItems = list.items.filter(item => item.puzzle && item.puzzle.status === 'solved').length;
+                    
+                    // Fun scoring formula!
+                    // 50 pts per solved item
+                    // 10 pts just for trying (per total items)
+                    // 250 pt perfection bonus
+                    let calculatedPoints = (solvedItems * 50) + (totalItems * 10);
+                    if (totalItems > 0 && solvedItems === totalItems) {
+                        calculatedPoints += 250; 
+                    }
+                    if (calculatedPoints === 0) calculatedPoints = 5;
+
                     // Increment user points
-                    req.user.points = (req.user.points || 0) + 1;
+                    req.user.points = (req.user.points || 0) + calculatedPoints;
                     await req.user.save();
 
                     // Update Leaderboard
@@ -187,7 +247,7 @@ exports.verifyGuess = async (req, res) => {
                         { upsert: true, new: true }
                     );
 
-                    pointsReceived = true;
+                    pointsReceived = calculatedPoints;
                     newTotalPoints = req.user.points;
                 }
             }
@@ -240,6 +300,8 @@ exports.updatePuzzleType = async (req, res) => {
             } else if (type === 'word_grid') {
                 const { grid, solution } = generateWordGrid(puzzle.groceryItemName);
                 puzzle.data = { grid, solution };
+            } else if (type === 'hangman') {
+                puzzle.data = { guessedLetters: [], wrongGuesses: 0 };
             } else {
                 puzzle.data = {};
             }
@@ -273,8 +335,55 @@ exports.failPuzzle = async (req, res) => {
         // Mark as failed
         puzzle.status = 'failed';
         await puzzle.save();
+        
+        let newTotalPoints = req.user ? req.user.points : 0;
+        let pointsReceived = false;
 
-        res.status(200).json({ success: true, data: puzzle });
+        if (req.user) {
+            const list = await GroceryList.findOne({
+                'items.puzzle': puzzle._id
+            }).populate('items.puzzle');
+
+            if (list) {
+                const isFinished = list.items.every(item =>
+                    item.puzzle && (item.puzzle.status === 'solved' || item.puzzle.status === 'failed')
+                );
+
+                if (isFinished && !list.pointsAwarded) {
+                    list.pointsAwarded = true;
+                    await list.save();
+
+                    const totalItems = list.items.length;
+                    const solvedItems = list.items.filter(item => item.puzzle && item.puzzle.status === 'solved').length;
+                    
+                    let calculatedPoints = (solvedItems * 50) + (totalItems * 10);
+                    if (totalItems > 0 && solvedItems === totalItems) {
+                        calculatedPoints += 250; 
+                    }
+                    if (calculatedPoints === 0) calculatedPoints = 5;
+
+                    req.user.points = (req.user.points || 0) + calculatedPoints;
+                    await req.user.save();
+
+                    await Leaderboard.findOneAndUpdate(
+                        { user: req.user._id },
+                        {
+                            $set: {
+                                username: req.user.username,
+                                totalPoints: req.user.points,
+                                lastUpdated: Date.now()
+                            }
+                        },
+                        { upsert: true, new: true }
+                    );
+
+                    pointsReceived = calculatedPoints;
+                    newTotalPoints = req.user.points;
+                }
+            }
+        }
+
+        res.status(200).json({ success: true, data: puzzle, pointsReceived, newTotalPoints });
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Server Error' });

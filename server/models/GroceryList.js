@@ -15,6 +15,10 @@ const GroceryListSchema = new mongoose.Schema({
             type: String,
             required: true
         },
+        imageUrl: {
+            type: String,
+            default: null
+        },
         puzzle: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Puzzle'

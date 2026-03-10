@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon, Trophy, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon, Trophy, LogOut, ChevronLeft, ChevronRight, CheckCircle2, Clock, ShoppingBag } from 'lucide-react';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import GroceryListBuilder from './components/GroceryListBuilder';
@@ -8,13 +8,244 @@ import ListDetails from './components/ListDetails';
 import Leaderboard from './components/Leaderboard';
 import './App.css';
 
-/* ... imports remain same ... */
+/* ============================================================
+   ListsDashboard — Lumen Focus-style main view
+   ============================================================ */
+const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingIds, setSelectedList, requestDeleteList, setShowBuilder }) => {
+  const [unlockAnimating, setUnlockAnimating] = useState(false);
+  const prevCooldown = useRef(cooldown);
 
-/* 
-  Dashboard Component 
-  - Handles switching between Profile and Lists tabs
-  - Displays the FAB and Modals
-*/
+  // Detect countdown finishing → trigger unlock animation
+  useEffect(() => {
+    if (prevCooldown.current > 0 && cooldown === 0) {
+      setUnlockAnimating(true);
+      setTimeout(() => setUnlockAnimating(false), 900);
+    }
+    prevCooldown.current = cooldown;
+  }, [cooldown]);
+
+  // Split lists into active (pending items) and completed
+  const activeLists = lists.filter(l => {
+    if (!l.items || l.items.length === 0) return true;
+    return l.items.some(item => item.puzzle && item.puzzle.status === 'pending');
+  });
+
+  const completedLists = lists.filter(l => {
+    if (!l.items || l.items.length === 0) return false;
+    return l.items.every(item => !item.puzzle || item.puzzle.status !== 'pending');
+  });
+
+  // The "current task" is the first active list
+  const currentList = activeLists[0] || null;
+
+  // Total items across all lists
+  const totalItems = lists.reduce((sum, l) => sum + (l.items ? l.items.length : 0), 0);
+
+  const getListStatus = (list) => {
+    if (!list.items || list.items.length === 0) return { color: '#7C3AED', label: 'EMPTY' };
+    const total = list.items.length;
+    const pending = list.items.filter(i => i.puzzle && i.puzzle.status === 'pending').length;
+    const failed = list.items.filter(i => i.puzzle && i.puzzle.status === 'failed').length;
+    if (pending > 0) return { color: '#7C3AED', label: 'IN PROGRESS' };
+    if (failed === 0) return { color: '#10B981', label: 'COMPLETED' };
+    return { color: '#EF4444', label: 'FINISHED' };
+  };
+
+  return (
+    <div className="fd-dashboard">
+      {/* ── Top: Logo & Quote ── */}
+      <div className="fd-top">
+        <img src="/logo.png" alt="Forgetti-List" className="fd-logo" />
+        <p className="fd-quote">{randomWelcome}</p>
+      </div>
+
+      {/* ── Timer Badge ── */}
+      <div className="fd-timer-wrap">
+        {cooldown > 0 ? (
+          <div className="fd-timer-badge fd-timer-active">
+            <Clock size={14} />
+            <span>Brain Cooldown: <strong>{cooldown}s</strong></span>
+          </div>
+        ) : (
+          <div className={`fd-timer-badge fd-timer-ready ${unlockAnimating ? 'fd-unlock-pop' : ''}`}>
+            <CheckCircle2 size={14} />
+            <span>Ready to go!</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Centre row: Circle + Count ── */}
+      <div className="fd-centre-row">
+        {/* SVG Circle */}
+        <div className="fd-circle-wrap">
+          <svg className="fd-circle-svg" viewBox="0 0 220 220">
+            {/* Outer decorative ring */}
+            <circle cx="110" cy="110" r="104" fill="none" stroke="var(--border-color)" strokeWidth="2" />
+            {/* Progress arc – purple */}
+            <circle
+              cx="110" cy="110" r="92"
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="14"
+              strokeLinecap="round"
+              strokeDasharray="578"
+              strokeDashoffset={cooldown > 0 ? 578 * (cooldown / 60) : 0}
+              transform="rotate(-90 110 110)"
+              style={{ transition: 'stroke-dashoffset 1s linear' }}
+            />
+            {/* Inner fill */}
+            <circle cx="110" cy="110" r="78" fill="var(--surface-color)" />
+          </svg>
+
+          {/* Text inside circle */}
+          <div className="fd-circle-inner">
+            {loadingLists ? (
+              <span className="fd-circle-sub">Loading…</span>
+            ) : currentList ? (
+              <>
+                <span className="fd-circle-label">CURRENT LIST</span>
+                <span className="fd-circle-task">{currentList.name}</span>
+                <span className="fd-circle-sub">{currentList.items?.length || 0} items</span>
+              </>
+            ) : lists.length === 0 ? (
+              <>
+                <span className="fd-circle-label">NO LISTS YET</span>
+                <span className="fd-circle-task" style={{ fontSize: '1rem' }}>Create your</span>
+                <span className="fd-circle-task" style={{ fontSize: '1rem' }}>first list!</span>
+              </>
+            ) : (
+              <>
+                <span className="fd-circle-label">ALL DONE</span>
+                <span className="fd-circle-sub">Nothing pending</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Count badge beside circle */}
+        <div className="fd-count-panel">
+          <div className="fd-count-card">
+            <ShoppingBag size={22} color="var(--primary)" />
+            <span className="fd-count-number">{lists.length}</span>
+            <span className="fd-count-label">Lists</span>
+          </div>
+          <div className="fd-count-card">
+            <List size={22} color="#10B981" />
+            <span className="fd-count-number">{totalItems}</span>
+            <span className="fd-count-label">Total Items</span>
+          </div>
+          <div className="fd-count-card">
+            <CheckCircle2 size={22} color="#F59E0B" />
+            <span className="fd-count-number">{completedLists.length}</span>
+            <span className="fd-count-label">Completed</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Create List Button ── */}
+      <div className="fd-action-row">
+        <button
+          id="fd-create-btn"
+          className={`fd-create-btn ${cooldown > 0 ? 'fd-btn-locked' : 'fd-btn-ready'} ${unlockAnimating ? 'fd-unlock-pop' : ''}`}
+          disabled={cooldown > 0}
+          onClick={() => setShowBuilder(true)}
+          title={cooldown > 0 ? `Wait ${cooldown}s before creating a new list` : 'Create a new list'}
+        >
+          <Plus size={20} strokeWidth={2.5} />
+          {cooldown > 0 ? `Create New List  (${cooldown}s)` : 'Create New List'}
+        </button>
+      </div>
+
+      {/* ── Active / In-Progress Lists ── */}
+      {activeLists.length > 0 && (
+        <div className="fd-section">
+          <h3 className="fd-section-title">Active Lists</h3>
+          <div className={`fd-queue ${cooldown > 0 ? 'fd-queue-locked' : ''}`}>
+            {cooldown > 0 && (
+              <div className="fd-cooldown-overlay">
+                <Clock size={20} />
+                <span>Lists locked during brain cooldown ({cooldown}s remaining)</span>
+              </div>
+            )}
+            {activeLists.map(list => {
+              const st = getListStatus(list);
+              return (
+                <div
+                  key={list._id}
+                  className={`fd-queue-item ${exitingIds.includes(list._id) ? 'exiting' : ''} ${cooldown > 0 ? 'fd-item-locked' : ''}`}
+                  onClick={() => cooldown === 0 && setSelectedList(list)}
+                  style={{ '--q-color': st.color }}
+                >
+                  <div className="fd-queue-icon">
+                    <ShoppingBag size={18} color={cooldown > 0 ? '#6B7280' : st.color} />
+                  </div>
+                  <div className="fd-queue-info">
+                    <span className="fd-queue-name">{list.name}</span>
+                    <span className="fd-queue-meta">{list.items.length} items · {new Date(list.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <span className="fd-queue-status" style={{ color: cooldown > 0 ? '#6B7280' : st.color }}>{cooldown > 0 ? 'LOCKED' : st.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Completed Lists ── */}
+      {completedLists.length > 0 && (
+        <div className="fd-section">
+          <h3 className="fd-section-title">Completed Lists</h3>
+          <div className="fd-queue">
+            {completedLists.map(list => {
+              const st = getListStatus(list);
+              return (
+                <div
+                  key={list._id}
+                  className={`fd-queue-item fd-queue-done ${exitingIds.includes(list._id) ? 'exiting' : ''} ${cooldown > 0 ? 'fd-item-locked' : ''}`}
+                  onClick={() => cooldown === 0 && setSelectedList(list)}
+                  style={{ '--q-color': st.color }}
+                >
+                  <div className="fd-queue-icon">
+                    <CheckCircle2 size={18} color={st.color} />
+                  </div>
+                  <div className="fd-queue-info">
+                    <span className="fd-queue-name">{list.name}</span>
+                    <span className="fd-queue-meta">{list.items.length} items · {new Date(list.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div className="fd-queue-right">
+                    <span className="fd-queue-status" style={{ color: st.color }}>{st.label}</span>
+                    <button
+                      className="fd-delete-btn"
+                      onClick={(e) => requestDeleteList(e, list._id)}
+                      title="Delete list"
+                    >
+                      <Trash size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loadingLists && lists.length === 0 && (
+        <div className="fd-empty">
+          <div className="fd-empty-icon"><List size={40} color="#9CA3AF" /></div>
+          <h3>No lists yet</h3>
+          <p>Create your first list to get started!</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ============================================================
+   Dashboard Component
+   - Handles switching between Profile and Lists tabs
+   - Displays the FAB and Modals
+   ============================================================ */
 const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpdateUser }) => {
   const [activeTab, setActiveTab] = useState('Lists');
   const [showBuilder, setShowBuilder] = useState(false);
@@ -22,9 +253,36 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
   const [loadingLists, setLoadingLists] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
   const [listToDelete, setListToDelete] = useState(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   const [exitingIds, setExitingIds] = useState([]);
   const [cooldown, setCooldown] = useState(0);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarFileRef = useRef(null);
+
+  const uploadAvatar = async (file) => {
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await fetch('http://localhost:5000/api/auth/avatar', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success && onUpdateUser) {
+        const updated = { ...user, avatarUrl: data.avatarUrl };
+        onUpdateUser(updated);
+        localStorage.setItem('user', JSON.stringify(updated));
+      }
+    } catch (err) {
+      console.error('Avatar upload failed', err);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   useEffect(() => {
     let timer;
@@ -129,37 +387,16 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
     setShowBuilder(false);
     fetchLists(); // Refresh lists
     setActiveTab('Lists');
-    setCooldown(30); // 30-second cooldown added here
+    setCooldown(60); // 60-second cooldown
   };
 
   return (
-    <div className={`app-container ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+    <div className="app-container">
       {/* Sidebar */}
       <header className="app-header">
-        <div className="logo-container" style={{ margin: 0, paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)', width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-          <img
-            src={isSidebarCollapsed ? "/small_logo.png" : "/logo.png"}
-            alt="Forgetti-List"
-            className={isSidebarCollapsed ? "logo-collapsed" : ""}
-            style={{
-              height: isSidebarCollapsed ? '40px' : '80px',
-              width: 'auto',
-              maxWidth: '100%',
-              transition: 'all 0.3s',
-              objectFit: 'contain'
-            }}
-          />
-          <button
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            style={{
-              position: 'absolute', right: '-12px', top: '50%', transform: 'translateY(-50%)',
-              background: 'var(--surface-color)', border: '1px solid var(--border-color)',
-              borderRadius: '50%', padding: '4px', cursor: 'pointer',
-              boxShadow: 'var(--shadow-sm)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}
-          >
-            {isSidebarCollapsed ? <ChevronRight size={14} color="var(--text-dark)" /> : <ChevronLeft size={14} color="var(--text-dark)" />}
-          </button>
+        <div className="logo-container">
+          <img src="/small_logo.png" alt="Forgetti-List" className="sidebar-logo-small" />
+          <img src="/logo.png" alt="Forgetti-List" className="sidebar-logo-full" />
         </div>
 
         <nav className="nav-tabs">
@@ -171,7 +408,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
             }}
             title="My Lists"
           >
-            <List size={20} />
+            <List size={24} />
             <span>Lists</span>
           </button>
 
@@ -180,7 +417,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
             onClick={() => setActiveTab('Leaderboard')}
             title="Leaderboard"
           >
-            <Trophy size={20} />
+            <Trophy size={24} />
             <span>Leaderboard</span>
           </button>
           <button
@@ -188,7 +425,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
             onClick={() => setActiveTab('Profile')}
             title="Profile"
           >
-            <User size={20} />
+            <User size={24} />
             <span>Profile</span>
           </button>
         </nav>
@@ -196,20 +433,22 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
         <div className="sidebar-footer">
           {/* Theme Toggle */}
           <button className="sidebar-user-item" onClick={onToggleTheme} title="Toggle Theme">
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
             <span className="sidebar-details">Theme: {theme === 'dark' ? 'Dark' : 'Light'}</span>
           </button>
 
           {/* Logout */}
           <button className="sidebar-user-item" onClick={onLogout} title="Logout">
-            <LogOut size={20} />
+            <LogOut size={24} />
             <span className="sidebar-details">Logout</span>
           </button>
 
           {/* User Profile */}
           <div className="sidebar-user-item" style={{ marginTop: '0.5rem', background: 'var(--surface-hover)', cursor: 'default' }}>
-            <div className="avatar-circle" style={{ width: '32px', height: '32px', minWidth: '32px' }}>
-              <User size={16} color="#7C3AED" />
+            <div className="avatar-circle" style={{ width: '32px', height: '32px', minWidth: '32px', overflow: 'hidden', padding: 0 }}>
+              {user.avatarUrl
+                ? <img src={user.avatarUrl} alt={user.username} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                : <User size={18} color="#7C3AED" />}
             </div>
             <div className="sidebar-details" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden' }}>
               <span style={{ fontWeight: '600', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{user.username}</span>
@@ -223,145 +462,16 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
       <div className="content-wrapper">
 
         {activeTab === 'Lists' && !selectedList && (
-          <div className="lists-view">
-            <div style={{ marginBottom: '2rem' }}>
-              <img src="/logo.png" alt="Forgetti-List" style={{ width: '300px', maxWidth: '100%', display: 'block', marginBottom: '1rem' }} />
-              <p style={{
-                fontSize: '1.5rem', margin: '0 0 0.5rem 0', fontWeight: '600',
-                color: 'var(--primary)', fontStyle: 'italic'
-              }}>
-                {randomWelcome}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <h2 style={{ fontSize: '2rem', margin: 0, fontWeight: 700, color: 'var(--text-dark)' }}>My Grocery Lists</h2>
-                {cooldown > 0 && (
-                  <span style={{ 
-                    background: '#EF4444', color: 'white', padding: '0.4rem 1rem', 
-                    borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem',
-                    boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)'
-                  }}>
-                    Brain Cooldown: {cooldown}s
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="lists-box">
-              {loadingLists ? (
-                <p className="text-center text-gray">Loading lists...</p>
-              ) : lists.length > 0 ? (
-                <div className="lists-grid" style={{ 
-                  opacity: cooldown > 0 ? 0.4 : 1, 
-                  filter: cooldown > 0 ? 'grayscale(100%)' : 'none',
-                  pointerEvents: cooldown > 0 ? 'none' : 'auto',
-                  transition: 'all 0.3s ease'
-                }}>
-                  {lists.map(list => {
-                    // Calculate Status
-                    let total = 0;
-                    let solved = 0;
-                    let failed = 0;
-                    let pending = 0;
-
-                    if (list.items && Array.isArray(list.items)) {
-                      total = list.items.length;
-                      list.items.forEach(item => {
-                        if (item.puzzle) {
-                          if (item.puzzle.status === 'solved') solved++;
-                          else if (item.puzzle.status === 'failed') failed++;
-                          else pending++;
-                        } else {
-                          // Default legacy items as pending or ignore? 
-                          // Assuming pending for safety to keep it Purple if not valid
-                          pending++;
-                        }
-                      });
-                    }
-
-                    let borderColor = '#7C3AED'; // Purple (Default/In Progress)
-
-                    if (total > 0 && pending === 0) {
-                      if (failed === 0) {
-                        borderColor = '#10B981'; // Green (Perfect)
-                      } else {
-                        borderColor = '#EF4444'; // Red (Finished but with errors)
-                      }
-                    }
-
-                    return (
-                      <div
-                        key={list._id}
-                        className={`grocery-list-item ${exitingIds.includes(list._id) ? 'exiting' : ''}`}
-                        onClick={() => setSelectedList(list)}
-                        style={{ '--status-color': borderColor }}
-                      >
-                        <span className="list-name">{list.name}</span>
-                        <div className="list-meta">
-                          <span>{list.items.length} Items</span>
-                          <span>{new Date(list.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        {total > 0 && pending === 0 && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: borderColor }}>
-                              {failed === 0 ? 'COMPLETED' : 'FINISHED'}
-                            </div>
-                            <button
-                              className="btn-delete-list"
-                              onClick={(e) => requestDeleteList(e, list._id)}
-                              title="Delete List"
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#EF4444',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                borderRadius: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                transition: 'background 0.2s'
-                              }}
-                              onMouseEnter={(e) => e.target.style.background = '#FEE2E2'}
-                              onMouseLeave={(e) => e.target.style.background = 'none'}
-                            >
-                              <Trash size={16} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center text-gray" style={{ marginTop: '4rem' }}>
-                  <div style={{ background: '#F3F4F6', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                    <List size={40} color="#9CA3AF" />
-                  </div>
-                  <h3 style={{ color: '#374151', margin: '0 0 0.5rem 0' }}>No lists yet</h3>
-                  <p>Click the + button below to create your first list!</p>
-                </div>
-              )}
-
-              <div style={{ position: 'absolute', bottom: '2rem', right: '2rem', zIndex: 10 }}>
-                <button 
-                  className="fab" 
-                  onClick={() => {
-                    if (cooldown > 0) {
-                      alert(`Whoa there speedy! You just created a list.\nAre you trying to crash the shopping cart? Give your brain ${cooldown} more seconds to cool down!`);
-                      return;
-                    }
-                    setShowBuilder(true);
-                  }}
-                  style={{
-                    background: cooldown > 0 ? '#9CA3AF' : '',
-                    cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
-                    transform: cooldown > 0 ? 'none' : ''
-                  }}
-                >
-                  <Plus size={32} strokeWidth={3} />
-                </button>
-              </div>
-            </div>
-          </div>
+          <ListsDashboard
+            lists={lists}
+            loadingLists={loadingLists}
+            cooldown={cooldown}
+            randomWelcome={randomWelcome}
+            exitingIds={exitingIds}
+            setSelectedList={setSelectedList}
+            requestDeleteList={requestDeleteList}
+            setShowBuilder={setShowBuilder}
+          />
         )}
 
         {activeTab === 'Lists' && selectedList && (
@@ -389,15 +499,28 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
         {activeTab === 'Profile' && (
           <div className="profile-view" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '2rem' }}>
             <div className="lists-box" style={{ width: '100%', maxWidth: '600px', textAlign: 'center', minHeight: 'auto', paddingBottom: '3rem' }}>
-              <div style={{
-                width: '100px', height: '100px', background: 'var(--card-bg)',
-                borderRadius: '50%', margin: '0 auto 1rem', display: 'flex',
-                alignItems: 'center', justifyContent: 'center'
-              }}>
-                <User size={48} color="var(--primary)" />
+              {/* Avatar Upload */}
+              <input
+                ref={avatarFileRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => uploadAvatar(e.target.files[0])}
+              />
+              <div
+                className="profile-avatar-wrap"
+                onClick={() => !uploadingAvatar && avatarFileRef.current?.click()}
+                title="Click to change profile picture"
+              >
+                {user.avatarUrl
+                  ? <img src={user.avatarUrl} alt={user.username} className="profile-avatar-img" />
+                  : <User size={48} color="var(--primary)" />}
+                <div className="profile-avatar-overlay">
+                  {uploadingAvatar ? '⏳' : '📷'}
+                </div>
               </div>
-              <h2 style={{ margin: '0', color: 'var(--text-dark)' }}>{user.username}</h2>
-              <p className="text-gray" style={{ marginBottom: '2rem' }}>{user.email}</p>
+              <h2 style={{ margin: '0.5rem 0 0', color: 'var(--text-dark)' }}>{user.username}</h2>
+              <p className="text-gray" style={{ marginBottom: '2rem', fontSize: '0.85rem' }}>Click avatar to change photo</p>
 
               <div className="profile-stats" style={{
                 display: 'grid',

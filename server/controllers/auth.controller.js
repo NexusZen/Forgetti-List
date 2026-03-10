@@ -19,6 +19,7 @@ const sendTokenResponse = async (user, statusCode, res) => {
             email: user.email,
             createdAt: user.createdAt,
             points: user.points || 0,
+            avatarUrl: user.avatarUrl || null,
             puzzlesSolved
         }
     });
@@ -97,7 +98,6 @@ exports.login = async (req, res) => {
 // @route   GET /api/auth/me
 // @access  Private
 exports.getMe = async (req, res) => {
-    // req.user is set by authentication middleware
     const puzzlesSolved = await Puzzle.countDocuments({ user: req.user._id, status: 'solved' });
 
     const user = req.user.toObject();
@@ -107,4 +107,29 @@ exports.getMe = async (req, res) => {
         success: true,
         data: user
     });
+};
+
+// @desc    Update user avatar
+// @route   PATCH /api/auth/avatar
+// @access  Private
+exports.updateAvatar = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No image uploaded' });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { avatarUrl: req.file.path },
+            { new: true }
+        );
+
+        res.status(200).json({
+            success: true,
+            avatarUrl: user.avatarUrl
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
 };

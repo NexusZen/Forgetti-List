@@ -1,0 +1,41 @@
+            {showScoreModal && (
+                <div className="modal-overlay">
+                    <div className="score-modal-content">
+                        <div style={{ marginBottom: '1rem' }}>
+                            {scoreStats.solved === scoreStats.total ? (
+                                <span style={{ fontSize: '4rem' }}>🏆</span>
+                            ) : (
+                                <span style={{ fontSize: '4rem' }}>🌟</span>
+                            )}
+                        </div>
+                        <h2 className="score-title">List Complete!</h2>
+                        <p className="score-subtitle">You've finished all the puzzles.</p>
+
+                        <ScoreGauge percentage={(scoreStats.solved / scoreStats.total) * 100} />
+
+                        <div className="score-stats">
+                            <div className="stat-item">
+                                <span className="stat-value" style={{ color: '#10B981' }}>{scoreStats.solved}</span>
+                                <span className="stat-label">Solved</span>
+                            </div>
+                            <div className="stat-item">
+                                <span className="stat-value" style={{ color: '#EF4444' }}>{scoreStats.failed}</span>
+                                <span className="stat-label">Failed</span>
+                            </div>
+                        </div>
+
+                        {scoreStats.pointsEarned && scoreStats.pointsEarned > 0 && (
+                            <div style={{ marginTop: '1rem', background: '#F3E8FF', padding: '0.8rem', borderRadius: '12px', border: '1px solid #D8B4FE' }}>
+                                <h3 style={{ margin: 0, color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '1.25rem' }}>
+                                    ✨ +{scoreStats.pointsEarned} Points! ✨
+                                </h3>
+                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: '#6B7280' }}>Based on your performance formula</p>
+                            </div>
+                        )}
+
+                        <button className="btn-close-score" onClick={onBack}>
+                            Return to Dashboard
+                        </button>
+                    </div>
+                </div>
+            )}

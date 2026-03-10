@@ -137,7 +137,7 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
                     <path
                         d="M 10 50 A 40 40 0 0 1 90 50"
                         fill="none"
-                        stroke="#F3F4F6"
+                        stroke="var(--score-gauge-track, #E5E7EB)"
                         strokeWidth="10"
                         strokeLinecap="round"
                     />
@@ -157,6 +157,12 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
             </div>
         );
     };
+
+    const hasPerfectCompletion = scoreStats.total > 0 && scoreStats.failed === 0 && scoreStats.solved === scoreStats.total;
+    const scoreArtwork = hasPerfectCompletion
+        ? (theme === 'dark' ? '/successdark.png' : '/successlight.png')
+        : (theme === 'dark' ? '/faildark.png' : '/faillight.png');
+    const completionPercentage = scoreStats.total ? (scoreStats.solved / scoreStats.total) * 100 : 0;
 
     return (
         <div className="list-details-view">
@@ -366,45 +372,49 @@ const ListDetails = ({ list, onBack, onUpdatePoints, theme }) => {
                 </div>
             )}
 
-            {/* Score / Completion Modal */}
+            {/* Score / Completion Modal — Artwork Card */}
             {showScoreModal && (
-                <div className="modal-overlay">
-                    <div className="score-modal-content">
-                        <div style={{ marginBottom: '1rem' }}>
-                            {scoreStats.solved === scoreStats.total ? (
-                                <span style={{ fontSize: '4rem' }}>🏆</span>
-                            ) : (
-                                <span style={{ fontSize: '4rem' }}>🌟</span>
+                <div className="score-overlay">
+                    <div className={`score-card ${theme === 'dark' ? 'score-card--dark' : 'score-card--light'}`}>
+                        {/* Artwork image (success or fail variant) */}
+                        <div className="score-artwork-wrap">
+                            <img
+                                src={scoreArtwork}
+                                alt={hasPerfectCompletion ? 'Success!' : 'Failed'}
+                                className="score-artwork"
+                            />
+                        </div>
+
+                        {/* Content body */}
+                        <div className="score-body">
+                            {/* Gauge */}
+                            <ScoreGauge percentage={completionPercentage} />
+
+                            {/* Solved / Failed stats */}
+                            <div className="score-stats-row">
+                                <div className="score-stat">
+                                    <span className="score-stat-value" style={{ color: '#10B981' }}>{scoreStats.solved}</span>
+                                    <span className="score-stat-label">Solved</span>
+                                </div>
+                                <div className="score-stat">
+                                    <span className="score-stat-value" style={{ color: '#EF4444' }}>{scoreStats.failed}</span>
+                                    <span className="score-stat-label">Failed</span>
+                                </div>
+                            </div>
+
+                            {/* Points earned */}
+                            {scoreStats.pointsEarned && scoreStats.pointsEarned > 0 && (
+                                <div className="score-points-badge">
+                                    <span className="score-points-plus">+</span>
+                                    {scoreStats.pointsEarned} Points
+                                </div>
                             )}
+
+                            {/* Go back button */}
+                            <button className="score-go-back-btn" onClick={onBack}>
+                                Go back
+                            </button>
                         </div>
-                        <h2 className="score-title">List Complete!</h2>
-                        <p className="score-subtitle">You've finished all the puzzles.</p>
-
-                        <ScoreGauge percentage={(scoreStats.solved / scoreStats.total) * 100} />
-
-                        <div className="score-stats">
-                            <div className="stat-item">
-                                <span className="stat-value" style={{ color: '#10B981' }}>{scoreStats.solved}</span>
-                                <span className="stat-label">Solved</span>
-                            </div>
-                            <div className="stat-item">
-                                <span className="stat-value" style={{ color: '#EF4444' }}>{scoreStats.failed}</span>
-                                <span className="stat-label">Failed</span>
-                            </div>
-                        </div>
-
-                        {scoreStats.pointsEarned && scoreStats.pointsEarned > 0 && (
-                            <div style={{ marginTop: '1rem', background: '#F3E8FF', padding: '0.8rem', borderRadius: '12px', border: '1px solid #D8B4FE' }}>
-                                <h3 style={{ margin: 0, color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '1.25rem' }}>
-                                    ✨ +{scoreStats.pointsEarned} Points! ✨
-                                </h3>
-                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: '#6B7280' }}>Based on your performance formula</p>
-                            </div>
-                        )}
-
-                        <button className="btn-close-score" onClick={onBack}>
-                            Return to Dashboard
-                        </button>
                     </div>
                 </div>
             )}

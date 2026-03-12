@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon, Trophy, LogOut, ChevronLeft, ChevronRight, CheckCircle2, Clock, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, User, List, Plus, X, Trash, Sun, Moon, Trophy, LogOut, ChevronLeft, ChevronRight, CheckCircle2, Clock, ShoppingBag, Pencil } from 'lucide-react';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import GroceryListBuilder from './components/GroceryListBuilder';
+import EditListModal from './components/EditListModal';
 import ListDetails from './components/ListDetails';
 import Leaderboard from './components/Leaderboard';
 import './App.css';
@@ -11,7 +12,7 @@ import './App.css';
 /* ============================================================
    ListsDashboard — Lumen Focus-style main view
    ============================================================ */
-const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingIds, setSelectedList, requestDeleteList, setShowBuilder }) => {
+const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingIds, setSelectedList, requestDeleteList, requestEditList, setShowBuilder }) => {
   const [unlockAnimating, setUnlockAnimating] = useState(false);
   const prevCooldown = useRef(cooldown);
 
@@ -161,12 +162,6 @@ const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingI
         <div className="fd-section">
           <h3 className="fd-section-title">Active Lists</h3>
           <div className={`fd-queue ${cooldown > 0 ? 'fd-queue-locked' : ''}`}>
-            {cooldown > 0 && (
-              <div className="fd-cooldown-overlay">
-                <Clock size={20} />
-                <span>Lists locked during brain cooldown ({cooldown}s remaining)</span>
-              </div>
-            )}
             {activeLists.map(list => {
               const st = getListStatus(list);
               return (
@@ -183,7 +178,18 @@ const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingI
                     <span className="fd-queue-name">{list.name}</span>
                     <span className="fd-queue-meta">{list.items.length} items · {new Date(list.createdAt).toLocaleDateString()}</span>
                   </div>
-                  <span className="fd-queue-status" style={{ color: cooldown > 0 ? '#6B7280' : st.color }}>{cooldown > 0 ? 'LOCKED' : st.label}</span>
+                  <div className="fd-queue-right">
+                    <span className="fd-queue-status" style={{ color: cooldown > 0 ? '#6B7280' : st.color }}>{cooldown > 0 ? 'LOCKED' : st.label}</span>
+                    {cooldown === 0 && (
+                      <button
+                        className="fd-edit-btn"
+                        onClick={(e) => requestEditList(e, list)}
+                        title="Edit list"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -256,6 +262,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
 
   const [exitingIds, setExitingIds] = useState([]);
   const [cooldown, setCooldown] = useState(0);
+  const [editingList, setEditingList] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarFileRef = useRef(null);
 
@@ -383,11 +390,49 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
     }, 400);
   };
 
-  const handleListCreated = () => {
+  // Auto-fail all pending puzzles in incomplete lists before creating a new one
+  const failIncompleteLists = async () => {
+    const token = localStorage.getItem('token');
+    const incompleteLists = lists.filter(l =>
+      l.items && l.items.some(item => item.puzzle && item.puzzle.status === 'pending')
+    );
+    for (const list of incompleteLists) {
+      for (const item of list.items) {
+        if (item.puzzle && item.puzzle.status === 'pending' && item.puzzle._id) {
+          try {
+            await fetch(`http://localhost:5000/api/puzzle/${item.puzzle._id}/fail`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+          } catch (err) {
+            console.error('Error auto-failing puzzle:', err);
+          }
+        }
+      }
+    }
+  };
+
+  const handleListCreated = async () => {
     setShowBuilder(false);
+    // Auto-fail any incomplete lists
+    await failIncompleteLists();
     fetchLists(); // Refresh lists
     setActiveTab('Lists');
     setCooldown(60); // 60-second cooldown
+  };
+
+  // Edit list handlers
+  const requestEditList = (e, list) => {
+    e.stopPropagation();
+    setEditingList(list);
+  };
+
+  const handleEditSaved = (updatedList) => {
+    setEditingList(null);
+    // Update the list in place
+    setLists(prev => prev.map(l => l._id === updatedList._id ? updatedList : l));
+    // Reset cooldown since editing resets the timer
+    setCooldown(30);
   };
 
   return (
@@ -470,6 +515,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
             exitingIds={exitingIds}
             setSelectedList={setSelectedList}
             requestDeleteList={requestDeleteList}
+            requestEditList={requestEditList}
             setShowBuilder={setShowBuilder}
           />
         )}
@@ -577,6 +623,15 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
             <GroceryListBuilder onListCreated={handleListCreated} />
           </div>
         </div>
+      )}
+
+      {/* Edit List Modal */}
+      {editingList && (
+        <EditListModal
+          list={editingList}
+          onClose={() => setEditingList(null)}
+          onSaved={handleEditSaved}
+        />
       )}
 
       {/* Delete Confirmation Modal */}

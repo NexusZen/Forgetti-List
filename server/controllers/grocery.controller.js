@@ -114,3 +114,108 @@ exports.deleteGroceryList = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+// @desc    Update a grocery list (edit name, add/remove/rename items)
+// @route   PUT /api/grocery/:id
+// @access  Private
+exports.updateGroceryList = async (req, res) => {
+    try {
+        const list = await GroceryList.findById(req.params.id).populate('items.puzzle');
+
+        if (!list) {
+            return res.status(404).json({ success: false, message: 'List not found' });
+        }
+
+        if (list.user.toString() !== req.user.id) {
+            return res.status(401).json({ success: false, message: 'Not authorized' });
+        }
+
+        const { name, items } = req.body;
+
+        // Update list name if provided
+        if (name) list.name = name;
+
+        if (items && Array.isArray(items)) {
+            // Build a map of existing item IDs to their puzzle refs
+            const existingMap = {};
+            list.items.forEach(item => {
+                if (item._id) {
+                    existingMap[item._id.toString()] = item;
+                }
+            });
+
+            // Determine which existing items are kept (by _id)
+            const keptIds = new Set();
+            const newItems = [];
+
+            for (const incoming of items) {
+                if (incoming._id && existingMap[incoming._id]) {
+                    // Existing item — keep the puzzle ref, but allow name rename
+                    const existing = existingMap[incoming._id];
+                    keptIds.add(incoming._id);
+
+                    // If name changed and puzzle is still pending, update puzzle's groceryItemName
+                    if (incoming.name && incoming.name !== existing.name && existing.puzzle) {
+                        const puzzleStatus = typeof existing.puzzle === 'object' ? existing.puzzle.status : null;
+                        if (puzzleStatus === 'pending') {
+                            // Regenerate puzzle data for the new name
+                            const type = assignPuzzleType();
+                            const puzzleData = generatePuzzleData(incoming.name, type);
+                            await Puzzle.findByIdAndUpdate(
+                                typeof existing.puzzle === 'object' ? existing.puzzle._id : existing.puzzle,
+                                { groceryItemName: incoming.name, type, data: puzzleData }
+                            );
+                        }
+                    }
+
+                    newItems.push({
+                        _id: existing._id,
+                        name: incoming.name || existing.name,
+                        imageUrl: incoming.imageUrl !== undefined ? incoming.imageUrl : existing.imageUrl,
+                        puzzle: typeof existing.puzzle === 'object' ? existing.puzzle._id : existing.puzzle
+                    });
+                } else {
+                    // Brand new item — create a puzzle for it
+                    const itemName = typeof incoming === 'string' ? incoming : incoming.name;
+                    const imageUrl = typeof incoming === 'object' ? (incoming.imageUrl || null) : null;
+
+                    const type = assignPuzzleType();
+                    const puzzleData = generatePuzzleData(itemName, type);
+
+                    const puzzle = await Puzzle.create({
+                        user: req.user.id,
+                        groceryList: list._id,
+                        groceryItemName: itemName,
+                        type,
+                        data: puzzleData
+                    });
+
+                    newItems.push({
+                        name: itemName,
+                        imageUrl,
+                        puzzle: puzzle._id
+                    });
+                }
+            }
+
+            // Delete puzzles for removed items
+            for (const [id, item] of Object.entries(existingMap)) {
+                if (!keptIds.has(id) && item.puzzle) {
+                    const puzzleId = typeof item.puzzle === 'object' ? item.puzzle._id : item.puzzle;
+                    await Puzzle.findByIdAndDelete(puzzleId);
+                }
+            }
+
+            list.items = newItems;
+        }
+
+        await list.save();
+
+        const populatedList = await GroceryList.findById(list._id).populate('items.puzzle');
+
+        res.status(200).json({ success: true, data: populatedList });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};

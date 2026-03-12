@@ -2735,4 +2735,189 @@ input:focus {
   min-height: 20px;
 }
 
+/* ═══════════════════════════════════════════════════
+   Edit List — queue button + modal styles
+   ═══════════════════════════════════════════════════ */
 
+/* Edit button on queue items */
+.fd-edit-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 0.35rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s, opacity 0.15s;
+  opacity: 0.5;
+}
+
+.fd-edit-btn:hover {
+  background: rgba(124, 58, 237, 0.1);
+  opacity: 1;
+}
+
+/* Edit list modal */
+.edit-list-modal {
+  max-width: 560px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.edit-items-scroll {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+  padding-right: 0.3rem;
+}
+
+/* Each item row in the editor */
+.edit-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.edit-item-row:hover {
+  border-color: var(--primary-light);
+}
+
+.edit-item-locked {
+  opacity: 0.65;
+}
+
+.edit-item-number {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #6B7280;
+  min-width: 1.4rem;
+  flex-shrink: 0;
+}
+
+.edit-item-name {
+  flex: 1;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edit-inline-input {
+  flex: 1 !important;
+  padding: 0.3rem 0.5rem !important;
+  font-size: 0.92rem !important;
+  border-radius: 6px !important;
+}
+
+/* Status badges */
+.edit-status-badge {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.edit-badge-solved {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+}
+
+.edit-badge-failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+}
+
+.edit-badge-pending {
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--primary);
+}
+
+.edit-badge-new {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3B82F6;
+}
+
+/* Action buttons */
+.edit-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.edit-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  color: #6B7280;
+  transition: all 0.15s;
+}
+
+.edit-action-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-dark);
+}
+
+.edit-action-btn.edit-confirm {
+  color: #10B981;
+}
+
+.edit-action-btn.edit-confirm:hover {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.edit-action-btn.edit-cancel {
+  color: #EF4444;
+}
+
+.edit-action-btn.edit-cancel:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.edit-action-btn.edit-delete {
+  color: #EF4444;
+  opacity: 0.5;
+}
+
+.edit-action-btn.edit-delete:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Add area */
+.edit-add-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+/* Footer */
+.edit-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-color);
+  padding-top: 0.8rem;
+}

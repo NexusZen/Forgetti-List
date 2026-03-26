@@ -34,9 +34,7 @@ const HangmanDrawing = ({ wrongCount }) => {
 };
 
 const HangmanGame = ({ puzzle, onComplete, onClose }) => {
-    if (!puzzle) return null;
-
-    const puzzleId = typeof puzzle === 'string' ? puzzle : puzzle._id;
+    const puzzleId = puzzle ? (typeof puzzle === 'string' ? puzzle : puzzle._id) : null;
     const token = localStorage.getItem('token');
 
     const [activePuzzle, setActivePuzzle] = useState(typeof puzzle === 'object' ? puzzle : null);
@@ -56,6 +54,9 @@ const HangmanGame = ({ puzzle, onComplete, onClose }) => {
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [targetWord, setTargetWord] = useState('');
+
+    // Guard: must be AFTER all hooks
+    if (!puzzle) return null;
 
     // Initialize — switch puzzle type to hangman if needed
     useEffect(() => {

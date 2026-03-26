@@ -1,12 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, RotateCcw } from 'lucide-react';
 
 const WordleGame = ({ puzzle, onComplete, onClose }) => {
-    if (!puzzle) return null;
+    const puzzleId = puzzle ? (typeof puzzle === 'string' ? puzzle : puzzle._id) : null;
 
-    const puzzleId = typeof puzzle === 'string' ? puzzle : puzzle._id;
-
-    // Initialize state conservatively
     const [guesses, setGuesses] = useState(() => {
         if (typeof puzzle === 'object' && puzzle?.data?.guesses && Array.isArray(puzzle.data.guesses)) {
             return puzzle.data.guesses;
@@ -16,29 +13,34 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
     const [feedback, setFeedback] = useState([]);
     const [gameState, setGameState] = useState(typeof puzzle === 'object' ? puzzle.status : 'loading');
     const [message, setMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(false); // Start false to assume valid, set true if fetching needed
+    const [isLoading, setIsLoading] = useState(false);
     const [solution, setSolution] = useState('');
     const [currentGuess, setCurrentGuess] = useState('');
-
-    // Derived local copy of puzzle data in case we need to fetch it
     const [activePuzzle, setActivePuzzle] = useState(typeof puzzle === 'object' ? puzzle : null);
 
-    // Helper to calculate feedback locally (to restore state or nice UI on load)
-    const calculateFeedback = (guess, target) => {
+    // Use refs for values needed inside the keyboard useEffect
+    // so the effect doesn't need to re-register on every keystroke
+    const currentGuessRef = useRef(currentGuess);
+    const gameStateRef = useRef(gameState);
+    const solutionRef = useRef(solution);
+    currentGuessRef.current = currentGuess;
+    gameStateRef.current = gameState;
+    solutionRef.current = solution;
+
+    // Helper to calculate feedback locally
+    const calculateFeedback = useCallback((guess, target) => {
         if (!guess || !target) return [];
 
         const result = new Array(target.length).fill(null).map((_, i) => ({ letter: guess[i], status: 'absent' }));
         const targetCount = {};
         for (let char of target) targetCount[char] = (targetCount[char] || 0) + 1;
 
-        // Pass 1: Correct
         for (let i = 0; i < target.length; i++) {
             if (guess[i] === target[i]) {
                 result[i].status = 'correct';
                 targetCount[guess[i]]--;
             }
         }
-        // Pass 2: Present
         for (let i = 0; i < target.length; i++) {
             if (result[i].status === 'correct') continue;
             if (targetCount[guess[i]] > 0) {
@@ -47,12 +49,42 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
             }
         }
         return result;
-    };
+    }, []);
 
+    // === useEffect 1: Initialize game ===
     useEffect(() => {
+        if (!puzzleId) return;
+
+        const switchType = async (id) => {
+            try {
+                const res = await fetch(`http://127.0.0.1:5000/api/puzzle/${id}/type`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ type: 'wordle' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setActivePuzzle(data.data);
+                    setGuesses([]);
+                    setFeedback([]);
+                    setGameState('pending');
+                    setMessage('');
+                    setCurrentGuess('');
+                } else {
+                    setMessage(data.message || "Failed to initialize game type.");
+                }
+            } catch (err) {
+                console.error("Type switch error", err);
+                setMessage("Error switching game type");
+            }
+        };
+
         const initGame = async () => {
-            // Check if we need to fetch
-            const needFetch = !activePuzzle || !activePuzzle.data || (typeof puzzle === 'string');
+            const ap = typeof puzzle === 'object' ? puzzle : null;
+            const needFetch = !ap || !ap.data || (typeof puzzle === 'string');
 
             if (needFetch) {
                 setIsLoading(true);
@@ -91,59 +123,66 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
                     setIsLoading(false);
                 }
             } else {
-                // We have local data
-                let sol = solution;
-                if (activePuzzle.groceryItemName && !sol) {
-                    sol = activePuzzle.groceryItemName.trim().toUpperCase();
+                let sol = '';
+                if (ap.groceryItemName) {
+                    sol = ap.groceryItemName.trim().toUpperCase();
                     setSolution(sol);
                 }
 
-                if (activePuzzle.type !== 'wordle') {
+                if (ap.type !== 'wordle') {
                     setIsLoading(true);
                     await switchType(puzzleId);
                     setIsLoading(false);
                 } else {
-                    const existingGuesses = activePuzzle.data?.guesses || [];
-                    if (existingGuesses.length > 0 && feedback.length === 0 && sol) {
-                        // Restore feedback if missing
+                    const existingGuesses = ap.data?.guesses || [];
+                    if (existingGuesses.length > 0 && sol) {
                         setFeedback(existingGuesses.map(g => calculateFeedback(g, sol)));
                     }
                 }
             }
         };
 
-        const switchType = async (id) => {
-            try {
-                const res = await fetch(`http://127.0.0.1:5000/api/puzzle/${id}/type`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({ type: 'wordle' })
+        initGame();
+    }, [puzzleId, calculateFeedback]);
+
+    // === useEffect 2: Keyboard listener — MUST be at top level, never after a conditional return ===
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (gameStateRef.current !== 'pending') return;
+            const sol = solutionRef.current;
+            const wordLen = sol ? sol.length : 5;
+
+            if (e.key === 'Enter') {
+                // Dispatch a custom event that the component will handle
+                window.dispatchEvent(new CustomEvent('wordle-submit'));
+            } else if (e.key === 'Backspace') {
+                setCurrentGuess(prev => prev.slice(0, -1));
+            } else if (/^[a-zA-Z]$/.test(e.key)) {
+                setCurrentGuess(prev => {
+                    if (prev.length < wordLen) return prev + e.key.toUpperCase();
+                    return prev;
                 });
-                const data = await res.json();
-                if (data.success) {
-                    setActivePuzzle(data.data); // Update to new puzzle type details
-                    setGuesses([]);
-                    setFeedback([]);
-                    setGameState('pending');
-                    setMessage('');
-                    setCurrentGuess('');
-                    // Solution remains same (groceryItemName doesn't change)
-                } else {
-                    setMessage(data.message || "Failed to initialize game type.");
-                }
-            } catch (err) {
-                console.error("Type switch error", err);
-                setMessage("Error switching game type");
             }
         };
 
-        initGame();
-    }, [puzzleId]);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []); // Stable — uses refs, no deps needed
 
-    if (isLoading) return <div className="wordle-container"><p>Loading Game...</p></div>;
+    // === useEffect 3: Handle Enter key submissions via custom event ===
+    useEffect(() => {
+        const handleSubmitEvent = () => {
+            submitGuessRef.current?.();
+        };
+        window.addEventListener('wordle-submit', handleSubmitEvent);
+        return () => window.removeEventListener('wordle-submit', handleSubmitEvent);
+    }, []);
+
+    // submitGuess as a ref so the custom event always has the latest version
+    const submitGuessRef = useRef(null);
+
+    // Now safe to do conditional rendering (all hooks are above)
+    if (!puzzle) return null;
 
     const currentActivePuzzle = activePuzzle || (typeof puzzle === 'object' ? puzzle : {});
     const WORD_LENGTH = solution ? solution.length : 5;
@@ -157,8 +196,6 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
             return;
         }
 
-        /* Use 127.0.0.1 to avoid IPv6 resolution issues on localhost */
-        // Use puzzleId (which is safe string) instead of puzzle._id
         const url = `http://127.0.0.1:5000/api/puzzle/${puzzleId}/verify`;
 
         try {
@@ -182,7 +219,7 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
 
             if (data.success) {
                 const newFeedback = data.result;
-                setGuesses(prev => [...prev, currentGuess]); // Use functional update for safety
+                setGuesses(prev => [...prev, currentGuess]);
                 setFeedback(prev => [...prev, newFeedback]);
                 setCurrentGuess('');
 
@@ -210,24 +247,16 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
         }
     };
 
-    const handleKeyDown = (e) => {
-        if (gameState !== 'pending') return;
+    // Keep ref in sync so keyboard events can call the latest submitGuess
+    submitGuessRef.current = submitGuess;
 
-        if (e.key === 'Enter') {
-            submitGuess();
-        } else if (e.key === 'Backspace') {
-            setCurrentGuess(prev => prev.slice(0, -1));
-        } else if (/^[a-zA-Z]$/.test(e.key)) {
-            if (currentGuess.length < WORD_LENGTH) {
-                setCurrentGuess(prev => prev + e.key.toUpperCase());
-            }
-        }
+    if (isLoading) return <div className="wordle-container"><p>Loading Game...</p></div>;
+
+    const handleKeyClick = (key) => {
+        if (key === 'ENTER') submitGuess();
+        else if (key === 'BACKSPACE') setCurrentGuess(prev => prev.slice(0, -1));
+        else if (currentGuess.length < WORD_LENGTH) setCurrentGuess(prev => prev + key);
     };
-
-    useEffect(() => {
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentGuess, gameState, WORD_LENGTH]); // Added WORD_LENGTH dependency
 
     const renderGrid = () => {
         const rows = [];
@@ -252,12 +281,6 @@ const WordleGame = ({ puzzle, onComplete, onClose }) => {
             rows.push(<div key={i} className="wordle-row">{cells}</div>);
         }
         return rows;
-    };
-
-    const handleKeyClick = (key) => {
-        if (key === 'ENTER') submitGuess();
-        else if (key === 'BACKSPACE') setCurrentGuess(prev => prev.slice(0, -1));
-        else if (currentGuess.length < WORD_LENGTH) setCurrentGuess(prev => prev + key);
     };
 
     return (

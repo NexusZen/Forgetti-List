@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
 const WordSearchGame = ({ puzzle, onComplete, onClose }) => {
-    if (!puzzle) return null;
-
-    const [currentPuzzle, setCurrentPuzzle] = useState(puzzle);
-    const [grid, setGrid] = useState(puzzle.data?.grid || []);
-    const [solution, setSolution] = useState(puzzle.data?.solution || []);
+    const [currentPuzzle, setCurrentPuzzle] = useState(puzzle || null);
+    const [grid, setGrid] = useState(puzzle?.data?.grid || []);
+    const [solution, setSolution] = useState(puzzle?.data?.solution || []);
     const [clickedSequence, setClickedSequence] = useState([]);
-    const [gameState, setGameState] = useState(puzzle.status || 'pending');
+    const [gameState, setGameState] = useState(puzzle?.status || 'pending');
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    // Guard: must be AFTER all hooks
+    if (!puzzle) return null;
 
     const token = localStorage.getItem('token');
 

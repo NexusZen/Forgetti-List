@@ -12,7 +12,8 @@ import './App.css';
 /* ============================================================
    ListsDashboard — Lumen Focus-style main view
    ============================================================ */
-const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingIds, setSelectedList, requestDeleteList, requestEditList, setShowBuilder }) => {
+const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingIds, setSelectedList, requestDeleteList, requestEditList, setShowBuilder, theme }) => {
+  const isDark = theme === 'dark';
   const [unlockAnimating, setUnlockAnimating] = useState(false);
   const prevCooldown = useRef(cooldown);
 
@@ -54,10 +55,14 @@ const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingI
 
   return (
     <div className="fd-dashboard">
-      {/* ── Top: Logo & Quote ── */}
-      <div className="fd-top">
-        <img src="/logo.png" alt="Forgetti-List" className="fd-logo" />
-        <p className="fd-quote">{randomWelcome}</p>
+      {/* ── Top: Premium Hero Header ── */}
+      <div className="fd-hero">
+        <div className="fd-hero-glow" />
+        <div className="fd-hero-content">
+          <img src={isDark ? '/logo_white.png' : '/logo.png'} alt="Forgetti-List" className="fd-logo" />
+          <p className="fd-quote">{randomWelcome}</p>
+        </div>
+        <div className="fd-hero-accent" />
       </div>
 
       {/* ── Timer Badge ── */}
@@ -243,6 +248,273 @@ const ListsDashboard = ({ lists, loadingLists, cooldown, randomWelcome, exitingI
           <p>Create your first list to get started!</p>
         </div>
       )}
+    </div>
+  );
+};
+
+/* ============================================================
+   ProfileDashboard — User stats & activity dashboard
+   ============================================================ */
+const ProfileDashboard = ({ user, onUpdateUser, onLogout, serverMessage, uploadingAvatar, avatarFileRef, uploadAvatar, theme }) => {
+  const isDark = theme === 'dark';
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [activityRange, setActivityRange] = useState('biweekly'); // 'biweekly' or 'monthly'
+
+  const fetchStats = async (days) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/auth/stats?days=${days}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch stats', err);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    const days = activityRange === 'biweekly' ? 14 : 30;
+    fetchStats(days);
+  }, [activityRange]);
+
+  // Format join date
+  const joinDate = user.createdAt
+    ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : 'Unknown';
+
+  // Calculate retention percentage
+  const totalAttempted = (stats?.puzzlesSolved || 0) + (stats?.puzzlesFailed || 0);
+  const retentionPct = totalAttempted > 0
+    ? Math.round((stats.puzzlesSolved / totalAttempted) * 100)
+    : 0;
+
+  // Max count for chart scaling
+  const maxCount = stats?.activityDays
+    ? Math.max(...stats.activityDays.map(d => d.count), 1)
+    : 1;
+
+  // Today's date string
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="pd-container">
+      {/* ── Profile Header ── */}
+      <div className="pd-header">
+        {/* Hidden file input for avatar */}
+        <input
+          ref={avatarFileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => uploadAvatar(e.target.files[0])}
+        />
+        <div
+          className="pd-avatar"
+          onClick={() => !uploadingAvatar && avatarFileRef.current?.click()}
+          title="Click to change profile picture"
+        >
+          {user.avatarUrl
+            ? <img src={user.avatarUrl} alt={user.username} className="pd-avatar-img" />
+            : <User size={48} color="#fff" />
+          }
+          <div className="pd-avatar-overlay">
+            {uploadingAvatar ? '⏳' : <img src="/camera.png" alt="Change" className="pd-camera-icon" />}
+          </div>
+        </div>
+        <div className="pd-header-info">
+          <div className="pd-header-meta">
+            <span className="pd-badge">ELITE MEMBER</span>
+            <span className="pd-join-date">Joined {joinDate}</span>
+          </div>
+          <h1 className="pd-username">{user.username}</h1>
+          <p className="pd-bio">
+            Puzzle master and list conqueror. Points: <strong>{user.points || 0}</strong>
+          </p>
+        </div>
+      </div>
+
+      {/* ── Stat Cards Row ── */}
+      <div className="pd-stats-row">
+        {/* Puzzles Solved */}
+        <div className="pd-stat-card">
+          <div className="pd-stat-card-header">
+            <img src={isDark ? '/puzzle_purple.png' : '/puzzle_gray.png'} alt="" className="pd-stat-icon" />
+            <span className="pd-stat-label">LIFETIME</span>
+          </div>
+          <div className="pd-stat-value">
+            {loadingStats ? '—' : (stats?.puzzlesSolved ?? 0).toLocaleString()}
+          </div>
+          <div className="pd-stat-sublabel">PUZZLES SOLVED</div>
+        </div>
+
+        {/* Retention */}
+        <div className="pd-stat-card">
+          <div className="pd-stat-card-header">
+            <img src={isDark ? '/x_purple.png' : '/x_gray.png'} alt="" className="pd-stat-icon" />
+            <span className="pd-stat-label">RETENTION</span>
+          </div>
+          <div className="pd-stat-value">
+            {loadingStats ? '—' : `${retentionPct}%`}
+          </div>
+          <div className="pd-stat-sublabel">SUCCESS RATE</div>
+        </div>
+
+        {/* Peak Performance */}
+        <div className="pd-stat-card pd-stat-card--accent">
+          <div className="pd-stat-card-header">
+            <img src="/medal_purple.png" alt="" className="pd-stat-icon pd-stat-icon--light" />
+            <span className="pd-stat-label pd-stat-label--light">PEAK PERFORMANCE</span>
+          </div>
+          <div className="pd-stat-value pd-stat-value--light">
+            {loadingStats ? '—' : (
+              stats?.bestRank
+                ? <>#{String(stats.bestRank).padStart(2, '0')} <span className="pd-rank-scope">Global</span></>
+                : 'Unranked'
+            )}
+          </div>
+          <div className="pd-stat-sublabel pd-stat-sublabel--light">BEST RANK</div>
+          <img src="/medal_purple.png" alt="" className="pd-stat-bg-icon" />
+        </div>
+      </div>
+
+      {/* ── Activity Overview ── */}
+      <div className="pd-activity-card">
+        <div className="pd-activity-header">
+          <div>
+            <h2 className="pd-activity-title">Activity Overview</h2>
+            <p className="pd-activity-subtitle">
+              Daily cognitive engagement over the last {activityRange === 'biweekly' ? '14' : '30'} days
+            </p>
+          </div>
+          <div className="pd-range-toggle">
+            <button
+              className={`pd-range-btn ${activityRange === 'monthly' ? 'active' : ''}`}
+              onClick={() => setActivityRange('monthly')}
+            >
+              MONTHLY
+            </button>
+            <button
+              className={`pd-range-btn ${activityRange === 'biweekly' ? 'active' : ''}`}
+              onClick={() => setActivityRange('biweekly')}
+            >
+              BI-WEEKLY
+            </button>
+          </div>
+        </div>
+
+        <div className="pd-chart-area">
+          {stats?.activityDays ? (() => {
+            const days = stats.activityDays;
+            const n = days.length;
+            const chartW = 800;
+            const chartH = 200;
+            const padX = 0;
+            const padTop = 20;
+            const padBot = 30;
+            const drawH = chartH - padTop - padBot;
+
+            // Normalised Y positions (0 = bottom, 1 = top)
+            const points = days.map((d, i) => ({
+              x: padX + (i / (n - 1)) * (chartW - padX * 2),
+              y: padTop + drawH - (maxCount > 0 ? (d.count / maxCount) * drawH : 0),
+              day: d.day,
+              count: d.count,
+              isToday: d.date === todayStr
+            }));
+
+            // Smooth Catmull-Rom → cubic Bezier path (clamped to prevent overshoot)
+            const yMin = padTop;           // ceiling
+            const yMax = padTop + drawH;   // baseline
+            const clampY = (v) => Math.max(yMin, Math.min(yMax, v));
+
+            const catmullRom = (pts) => {
+              if (pts.length < 2) return `M ${pts[0]?.x || 0} ${pts[0]?.y || 0}`;
+              let path = `M ${pts[0].x} ${pts[0].y}`;
+              for (let i = 0; i < pts.length - 1; i++) {
+                const p0 = pts[Math.max(i - 1, 0)];
+                const p1 = pts[i];
+                const p2 = pts[i + 1];
+                const p3 = pts[Math.min(i + 2, pts.length - 1)];
+                const tension = 0.3;
+                const cp1x = p1.x + (p2.x - p0.x) * tension;
+                const cp1y = clampY(p1.y + (p2.y - p0.y) * tension);
+                const cp2x = p2.x - (p3.x - p1.x) * tension;
+                const cp2y = clampY(p2.y - (p3.y - p1.y) * tension);
+                path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+              }
+              return path;
+            };
+
+            const linePath = catmullRom(points);
+            const areaPath = `${linePath} L ${points[n - 1].x} ${chartH - padBot} L ${points[0].x} ${chartH - padBot} Z`;
+
+            return (
+              <svg
+                className="pd-wave-svg"
+                viewBox={`0 0 ${chartW} ${chartH}`}
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.45" />
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+                {/* Filled area */}
+                <path d={areaPath} fill="url(#waveGrad)" />
+                {/* Stroke line */}
+                <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                {/* Data dots */}
+                {points.map((p, i) => (
+                  <circle
+                    key={i}
+                    cx={p.x}
+                    cy={p.y}
+                    r={p.isToday ? 5 : 3.5}
+                    fill={p.count > 0 ? 'var(--primary)' : 'var(--border-color)'}
+                    stroke={p.isToday ? '#fff' : 'none'}
+                    strokeWidth={p.isToday ? 2 : 0}
+                    className="pd-wave-dot"
+                  >
+                    <title>{`${p.day}: ${p.count} solved`}</title>
+                  </circle>
+                ))}
+              </svg>
+            );
+          })() : (
+            <div className="pd-chart-loading">Loading activity data...</div>
+          )}
+        </div>
+
+        {/* Day labels below chart */}
+        {stats?.activityDays && (
+          <div className="pd-wave-labels">
+            {stats.activityDays.map((d, i) => (
+              <span
+                key={d.date}
+                className={`pd-wave-label ${d.date === todayStr ? 'pd-label-today' : ''}`}
+              >
+                {d.day}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Footer Info ── */}
+      <div className="pd-footer">
+        <span className="pd-server-status">
+          Backend: <span style={{ color: serverMessage && serverMessage !== 'Backend not connected' ? '#10B981' : '#EF4444' }}>
+            {serverMessage || 'Checking...'}
+          </span>
+        </span>
+      </div>
     </div>
   );
 };
@@ -440,8 +712,8 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
       {/* Sidebar */}
       <header className="app-header">
         <div className="logo-container">
-          <img src="/small_logo.png" alt="Forgetti-List" className="sidebar-logo-small" />
-          <img src="/logo.png" alt="Forgetti-List" className="sidebar-logo-full" />
+          <img src={theme === 'dark' ? '/small_logo_white.png' : '/small_logo.png'} alt="Forgetti-List" className="sidebar-logo-small" />
+          <img src={theme === 'dark' ? '/logo_white.png' : '/logo.png'} alt="Forgetti-List" className="sidebar-logo-full" />
         </div>
 
         <nav className="nav-tabs">
@@ -517,6 +789,7 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
             requestDeleteList={requestDeleteList}
             requestEditList={requestEditList}
             setShowBuilder={setShowBuilder}
+            theme={theme}
           />
         )}
 
@@ -543,73 +816,16 @@ const Dashboard = ({ user, serverMessage, onLogout, theme, onToggleTheme, onUpda
         )}
 
         {activeTab === 'Profile' && (
-          <div className="profile-view" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '2rem' }}>
-            <div className="lists-box" style={{ width: '100%', maxWidth: '600px', textAlign: 'center', minHeight: 'auto', paddingBottom: '3rem' }}>
-              {/* Avatar Upload */}
-              <input
-                ref={avatarFileRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={(e) => uploadAvatar(e.target.files[0])}
-              />
-              <div
-                className="profile-avatar-wrap"
-                onClick={() => !uploadingAvatar && avatarFileRef.current?.click()}
-                title="Click to change profile picture"
-              >
-                {user.avatarUrl
-                  ? <img src={user.avatarUrl} alt={user.username} className="profile-avatar-img" />
-                  : <User size={48} color="var(--primary)" />}
-                <div className="profile-avatar-overlay">
-                  {uploadingAvatar ? '⏳' : '📷'}
-                </div>
-              </div>
-              <h2 style={{ margin: '0.5rem 0 0', color: 'var(--text-dark)' }}>{user.username}</h2>
-              <p className="text-gray" style={{ marginBottom: '2rem', fontSize: '0.85rem' }}>Click avatar to change photo</p>
-
-              <div className="profile-stats" style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '1rem',
-                margin: '0 auto 3rem',
-                maxWidth: '400px'
-              }}>
-                <div style={{
-                  background: 'var(--card-bg)',
-                  padding: '1.5rem',
-                  borderRadius: '16px',
-                  textAlign: 'center',
-                  boxShadow: 'var(--shadow-sm)'
-                }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '0.2rem' }}>{user.points || 0}</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: '500', opacity: 0.8 }}>Total Points</div>
-                </div>
-
-                <div style={{
-                  background: 'var(--card-bg)',
-                  padding: '1.5rem',
-                  borderRadius: '16px',
-                  textAlign: 'center',
-                  boxShadow: 'var(--shadow-sm)'
-                }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10B981', marginBottom: '0.2rem' }}>{user.puzzlesSolved || 0}</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: '500', opacity: 0.8 }}>Puzzles Solved</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginBottom: '2rem' }}>
-                <button onClick={onLogout} className="btn-primary" style={{ backgroundColor: '#EF4444', padding: '0.8rem 2.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <LogOut size={18} />
-                  Logout
-                </button>
-              </div>
-
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-dark)', opacity: 0.6 }}>
-                Backend Status: <span style={{ color: serverMessage && serverMessage !== 'Backend not connected' ? '#10B981' : '#EF4444' }}>{serverMessage || 'Checking...'}</span>
-              </div>
-            </div>
-          </div>
+          <ProfileDashboard
+            user={user}
+            onUpdateUser={onUpdateUser}
+            onLogout={onLogout}
+            serverMessage={serverMessage}
+            uploadingAvatar={uploadingAvatar}
+            avatarFileRef={avatarFileRef}
+            uploadAvatar={uploadAvatar}
+            theme={theme}
+          />
         )}
       </div>
 

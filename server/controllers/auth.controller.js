@@ -109,6 +109,85 @@ exports.getMe = async (req, res) => {
     });
 };
 
+// @desc    Get user dashboard stats
+// @route   GET /api/auth/stats
+// @access  Private
+exports.getStats = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const daysParam = parseInt(req.query.days) || 14;
+
+        // Puzzles solved and failed
+        const puzzlesSolved = await Puzzle.countDocuments({ user: userId, status: 'solved' });
+        const puzzlesFailed = await Puzzle.countDocuments({ user: userId, status: 'failed' });
+
+        // Best rank — count users with more points + 1
+        const userLeaderboard = await Leaderboard.findOne({ user: userId });
+        let bestRank = null;
+        if (userLeaderboard && userLeaderboard.totalPoints > 0) {
+            const higherRanked = await Leaderboard.countDocuments({
+                totalPoints: { $gt: userLeaderboard.totalPoints }
+            });
+            bestRank = higherRanked + 1;
+        }
+
+        // Total leaderboard users
+        const totalUsers = await Leaderboard.countDocuments();
+
+        // Activity data — puzzles solved per day for the last N days
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - (daysParam - 1));
+        startDate.setHours(0, 0, 0, 0);
+
+        const activityData = await Puzzle.aggregate([
+            {
+                $match: {
+                    user: userId,
+                    status: 'solved',
+                    createdAt: { $gte: startDate }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { '_id': 1 } }
+        ]);
+
+        // Fill in missing days with 0
+        const days = [];
+        for (let i = 0; i < daysParam; i++) {
+            const date = new Date(startDate);
+            date.setDate(date.getDate() + i);
+            const dateStr = date.toISOString().split('T')[0];
+            const found = activityData.find(d => d._id === dateStr);
+            days.push({
+                date: dateStr,
+                day: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+                count: found ? found.count : 0
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                puzzlesSolved,
+                puzzlesFailed,
+                bestRank,
+                totalUsers,
+                activityDays: days
+            }
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
 // @desc    Update user avatar
 // @route   PATCH /api/auth/avatar
 // @access  Private
